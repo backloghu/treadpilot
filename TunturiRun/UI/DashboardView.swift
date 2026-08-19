@@ -1,6 +1,8 @@
-import SwiftData
 import SwiftUI
 
+/// Edzésképernyő: csak aktív edzésnél (futó/szüneteltetett szalag vagy aktív
+/// program) látszik. A programindítás a kezdőképernyőn történik — itt csak az
+/// élő adatok, a vezérlők és az aktív program állapota van.
 struct DashboardView: View {
     let deviceName: String
 
@@ -8,21 +10,7 @@ struct DashboardView: View {
     @EnvironmentObject private var runner: ProgramRunner
     @EnvironmentObject private var recorder: SessionRecorder
     @EnvironmentObject private var watchHeartRate: WatchHeartRateManager
-    @Query(sort: \CustomProgram.createdAt) private var customPrograms: [CustomProgram]
-    @State private var showStartConfirmation = false
-    @State private var showProgramStartConfirmation = false
-    @State private var selectedProgramId: UUID = WorkoutProgram.builtIn[0].id
-
-    private var programOptions: [WorkoutProgram] {
-        WorkoutProgram.builtIn + customPrograms.map(\.asWorkoutProgram)
-    }
-
-    /// A kiválasztott program mindig frissen, a tárból feloldva — így a
-    /// szerkesztőben módosított vagy törölt program nem indulhat el régi
-    /// pillanatképként.
-    private var selectedProgram: WorkoutProgram {
-        programOptions.first(where: { $0.id == selectedProgramId }) ?? WorkoutProgram.builtIn[0]
-    }
+    @State private var showResumeConfirmation = false
 
     var body: some View {
         ScrollView {
@@ -31,57 +19,41 @@ struct DashboardView: View {
                 speedReadout
                 statsGrid
                 controls
-                programSection
+                if isProgramActive {
+                    programSection
+                }
             }
             .padding(20)
         }
         .background(Brand.bgDeep)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                NavigationLink {
-                    HistoryView()
-                } label: {
-                    Image(systemName: "clock.arrow.circlepath")
-                }
-            }
             ToolbarItem(placement: .principal) {
                 Text(deviceName.uppercased())
                     .font(Brand.display(12, .semibold))
                     .tracking(1.5)
                     .foregroundStyle(Brand.fgMid)
             }
-            ToolbarItem(placement: .primaryAction) {
-                Button { runner.stop(); client.disconnect() } label: {
-                    Text("BONTÁS").font(Brand.display(12, .semibold)).tracking(1.5)
-                }
-            }
         }
         .toolbarBackground(Brand.bgDeep, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .confirmationDialog("Elindítod a szalagot?",
-                            isPresented: $showStartConfirmation,
+        .confirmationDialog("Folytatod az edzést?",
+                            isPresented: $showResumeConfirmation,
                             titleVisibility: .visible) {
-            Button("Indítás \(client.targetSpeedKmh, specifier: "%.1f") km/h sebességgel") {
+            Button("Folytatás \(client.targetSpeedKmh, specifier: "%.1f") km/h sebességgel") {
                 client.userConfirmedStart()
             }
             Button("Mégse", role: .cancel) {}
         } message: {
             Text("Állj a szalag két szélére, és csíptesd fel a biztonsági kulcsot.")
         }
-        .confirmationDialog("Programot indítasz álló szalagon?",
-                            isPresented: $showProgramStartConfirmation,
-                            titleVisibility: .visible) {
-            Button("\(selectedProgram.name) indítása") {
-                runner.arm(selectedProgram, on: client)
-            }
-            Button("Mégse", role: .cancel) {}
-        } message: {
-            if let first = selectedProgram.segments.first {
-                Text("A(z) \(ProgramRunner.armCountdownSeconds) mp-es visszaszámlálás után "
-                     + "a szalag magától elindul, első szegmens: "
-                     + String(format: "%.1f km/h, %d%% dőlés.", first.targetSpeedKmh, first.targetIncline)
-                     + " Állj a szalag két szélére, biztonsági kulcs fel!")
-            }
+    }
+
+    private var isProgramActive: Bool {
+        switch runner.runnerState {
+        case .armed, .waitingForBelt, .running, .suspended:
+            return true
+        case .idle, .finished:
+            return false
         }
     }
 
@@ -202,10 +174,12 @@ struct DashboardView: View {
                     }
                     .buttonStyle(BrandStrokeStyle())
                 } else {
+                    // Szünet/leállás közben innen folytatható az edzés;
+                    // álló szalagnál a nézet magától visszavált a kezdőképernyőre.
                     Button {
-                        showStartConfirmation = true
+                        showResumeConfirmation = true
                     } label: {
-                        HStack { Image(systemName: "play.fill"); Text("INDÍTÁS").tracking(1.5) }
+                        HStack { Image(systemName: "play.fill"); Text("FOLYTATÁS").tracking(1.5) }
                     }
                     .buttonStyle(BrandCTAStyle())
                     .disabled(client.state.status == .countdown)
@@ -254,10 +228,10 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Edzésprogram
+    // MARK: - Aktív edzésprogram
 
     private var programSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             BrandEyebrow("Edzésprogram")
 
             switch runner.runnerState {
@@ -353,72 +327,8 @@ struct DashboardView: View {
                     }
                     .buttonStyle(BrandStrokeStyle(color: Brand.danger))
                 }
-            case .finished:
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
-                    Text("PROGRAM KÉSZ!").tracking(1.5)
-                }
-                .font(Brand.display(13, .semibold))
-                .foregroundStyle(Brand.accent)
-                Button {
-                    runner.stop()
-                } label: {
-                    Text("ÚJ PROGRAM").tracking(1.5)
-                }
-                .buttonStyle(BrandStrokeStyle())
-            case .idle:
-                HStack(spacing: 10) {
-                    Menu {
-                        ForEach(programOptions) { program in
-                            Button(program.name) { selectedProgramId = program.id }
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Text(selectedProgram.name)
-                                .font(Brand.display(14, .semibold))
-                                .foregroundStyle(Brand.accent)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                            Spacer(minLength: 4)
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(Brand.accent)
-                        }
-                        .padding(.horizontal, 12)
-                        .frame(height: 44)
-                        .background(Brand.bgElev2, in: RoundedRectangle(cornerRadius: Brand.radius))
-                        .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
-                    }
-                    NavigationLink {
-                        ProgramListView()
-                    } label: {
-                        Image(systemName: "slider.horizontal.3")
-                            .foregroundStyle(Brand.accent)
-                            .frame(width: 44, height: 44)
-                            .background(Brand.bgElev2, in: RoundedRectangle(cornerRadius: Brand.radius))
-                            .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
-                    }
-                }
-                Text("\(SessionFormat.duration(Int(selectedProgram.totalDuration))) · \(selectedProgram.segments.count) szegmens")
-                    .font(.caption)
-                    .foregroundStyle(Brand.grey)
-                Button {
-                    if client.state.isRunning {
-                        runner.start(selectedProgram, on: client)
-                    } else {
-                        showProgramStartConfirmation = true
-                    }
-                } label: {
-                    HStack { Image(systemName: "list.bullet"); Text("PROGRAM INDÍTÁSA").tracking(1.5) }
-                }
-                .buttonStyle(BrandStrokeStyle(color: Brand.accent))
-                .disabled(client.state.status == .countdown)
-                if !client.state.isRunning {
-                    Text("Álló szalagon a program megerősítés és "
-                         + "\(ProgramRunner.armCountdownSeconds) mp visszaszámlálás után indítja a padot.")
-                        .font(.footnote)
-                        .foregroundStyle(Brand.grey)
-                }
+            case .idle, .finished:
+                EmptyView()
             }
         }
         .brandBox()
