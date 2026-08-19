@@ -298,7 +298,7 @@ struct DashboardView: View {
                     .buttonStyle(BrandStrokeStyle(color: Brand.danger))
                 }
             case .running(let index, let remaining), .suspended(let index, let remaining):
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
                     if case .suspended = runner.runnerState {
                         HStack(spacing: 6) {
                             Image(systemName: "pause.circle")
@@ -308,13 +308,43 @@ struct DashboardView: View {
                         .foregroundStyle(Brand.accent)
                     }
                     if let segment = runner.currentSegment, let program = runner.program {
-                        Text("\(index + 1)/\(program.segments.count) · \(segment.name)")
-                            .font(Brand.display(15, .semibold))
-                            .foregroundStyle(.white)
-                        Text("Hátra: \(formattedTime(Int(remaining))) · cél: "
+                        HStack(alignment: .firstTextBaseline) {
+                            Text("\(index + 1)/\(program.segments.count) · \(segment.name)")
+                                .font(Brand.display(15, .semibold))
+                                .foregroundStyle(.white)
+                            Spacer()
+                            if let programRemaining = runner.programRemainingSeconds {
+                                Text("HÁTRA " + SessionFormat.duration(programRemaining))
+                                    .font(Brand.display(12, .semibold))
+                                    .tracking(1)
+                                    .foregroundStyle(Brand.accent)
+                            }
+                        }
+                        if let progress = runner.programProgress {
+                            programProgressBar(progress)
+                        }
+                        Text("Szakaszból hátra: \(formattedTime(Int(remaining))) · cél: "
                              + String(format: "%.1f km/h, %d%%", segment.targetSpeedKmh, segment.targetIncline))
                             .font(.caption)
                             .foregroundStyle(Brand.grey)
+                        if let next = runner.nextSegment {
+                            HStack(spacing: 5) {
+                                Image(systemName: "arrow.right")
+                                    .font(.caption2.weight(.bold))
+                                Text("Következő: \(next.name) · "
+                                     + String(format: "%.1f km/h, %d%%", next.targetSpeedKmh, next.targetIncline))
+                            }
+                            .font(.caption)
+                            .foregroundStyle(Brand.fgDim)
+                        } else {
+                            HStack(spacing: 5) {
+                                Image(systemName: "flag.checkered")
+                                    .font(.caption2)
+                                Text("Ez az utolsó szakasz")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(Brand.fgDim)
+                        }
                     }
                     Button {
                         runner.stop()
@@ -392,6 +422,20 @@ struct DashboardView: View {
             }
         }
         .brandBox()
+    }
+
+    private func programProgressBar(_ progress: Double) -> some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Brand.bgElev2)
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Brand.accent)
+                    .frame(width: max(0, min(1, progress)) * geometry.size.width)
+            }
+        }
+        .frame(height: 6)
+        .overlay(RoundedRectangle(cornerRadius: 3).stroke(Brand.gridLine))
     }
 
     private func formattedTime(_ seconds: Int) -> String {
