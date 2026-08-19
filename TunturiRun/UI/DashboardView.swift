@@ -21,6 +21,13 @@ struct DashboardView: View {
         }
         .background(Brand.bgDeep)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink {
+                    HistoryView()
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                }
+            }
             ToolbarItem(placement: .principal) {
                 Text(deviceName.uppercased())
                     .font(Brand.display(12, .semibold))

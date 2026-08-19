@@ -82,6 +82,13 @@ struct ScanView: View {
         }
         .background(Brand.bgDeep)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink {
+                    HistoryView()
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                }
+            }
             ToolbarItem(placement: .principal) { BrandWordmark() }
             ToolbarItem(placement: .primaryAction) {
                 if client.phase == .scanning {
