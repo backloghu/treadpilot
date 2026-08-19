@@ -1,0 +1,54 @@
+name: TunturiRun
+options:
+  bundleIdPrefix: dev.nitrolearning
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+targets:
+  TunturiRun:
+    type: application
+    platform: iOS
+    sources: [TunturiRun]
+    info:
+      path: TunturiRun/Info.plist
+      properties:
+        CFBundleDisplayName: TunturiRun
+        UILaunchScreen: {}
+        NSBluetoothAlwaysUsageDescription: >-
+          A Bluetooth-hozzáférés a Tunturi futópad csatlakoztatásához,
+          az edzésadatok kiolvasásához és a pad vezérléséhez szükséges.
+        UIBackgroundModes: [bluetooth-central]
+        ITSAppUsesNonExemptEncryption: false
+        UIAppFonts:
+          - SpaceGrotesk-Light.ttf
+          - SpaceGrotesk-Regular.ttf
+          - SpaceGrotesk-Medium.ttf
+          - SpaceGrotesk-SemiBold.ttf
+          - SpaceGrotesk-Bold.ttf
+        UIUserInterfaceStyle: Dark
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: false
+        CODE_SIGN_STYLE: Automatic
+
+  TunturiRunTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [TunturiRunTests]
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: TunturiRun
+
+schemes:
+  TunturiRun:
+    build:
+      targets:
+        TunturiRun: all
+    test:
+      targets: [TunturiRunTests]
