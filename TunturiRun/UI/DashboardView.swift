@@ -14,14 +14,16 @@ struct DashboardView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 14) {
+            VStack(spacing: 12) {
                 statusHeader
+                // A program mindig felül, jól láthatóan — futás közben ez a
+                // legfontosabb információ.
+                if isProgramActive {
+                    programPanel
+                }
                 speedReadout
                 statsGrid
                 controls
-                if isProgramActive {
-                    programSection
-                }
             }
             .padding(20)
         }
@@ -103,9 +105,9 @@ struct DashboardView: View {
     // MARK: - Kijelző
 
     private var speedReadout: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             Text("\(client.state.speedKmh, specifier: "%.1f")")
-                .font(Brand.display(84, .bold))
+                .font(Brand.display(isProgramActive ? 60 : 84, .bold))
                 .foregroundStyle(.white)
                 .contentTransition(.numericText())
             Text("KM/H · DŐLÉS \(client.state.inclinePercent)%")
@@ -114,29 +116,71 @@ struct DashboardView: View {
                 .foregroundStyle(Brand.grey)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, isProgramActive ? 2 : 12)
     }
 
+    private var kcalText: String {
+        recorder.activeSession.map { "\(Int($0.computedKcal.rounded())) kcal" }
+            ?? "\(client.state.kcal) kcal"
+    }
+
+    @ViewBuilder
     private var statsGrid: some View {
-        Grid(horizontalSpacing: 10, verticalSpacing: 10) {
-            GridRow {
-                stat("Idő", formattedTime(client.state.elapsedSeconds))
-                stat("Táv", String(format: "%.2f km", client.state.distanceKm))
+        if isProgramActive {
+            // Kompakt, 3 oszlopos rács, hogy programnál minden egy képernyőn legyen.
+            Grid(horizontalSpacing: 8, verticalSpacing: 8) {
+                GridRow {
+                    compactStat("Idő", formattedTime(client.state.elapsedSeconds))
+                    compactStat("Táv", String(format: "%.2f km", client.state.distanceKm))
+                    compactStat("Kalória", kcalText)
+                }
+                GridRow {
+                    compactStat(watchHeartRate.freshHeartRate() > 0 ? "Pulzus ⌚" : "Pulzus",
+                                heartRateText)
+                    compactStat("Szint fel", String(format: "%.0f m",
+                                                    recorder.activeSession?.elevationGainM ?? 0))
+                    compactStat("Lépések", client.state.steps > 0 ? "\(client.state.steps)" : "–")
+                }
             }
-            GridRow {
-                // Aktív edzésnél a saját (testadat-alapú) számítást mutatjuk,
-                // egyébként a pad nyers értékét.
-                stat("Kalória", recorder.activeSession.map { "\(Int($0.computedKcal.rounded())) kcal" }
-                                ?? "\(client.state.kcal) kcal")
-                stat(watchHeartRate.freshHeartRate() > 0 ? "Pulzus · Watch" : "Pulzus",
-                     heartRateText)
-            }
-            GridRow {
-                stat("Szint fel", String(format: "%.0f m",
-                                         recorder.activeSession?.elevationGainM ?? 0))
-                stat("Lépések", client.state.steps > 0 ? "\(client.state.steps)" : "–")
+        } else {
+            Grid(horizontalSpacing: 10, verticalSpacing: 10) {
+                GridRow {
+                    stat("Idő", formattedTime(client.state.elapsedSeconds))
+                    stat("Táv", String(format: "%.2f km", client.state.distanceKm))
+                }
+                GridRow {
+                    // Aktív edzésnél a saját (testadat-alapú) számítást mutatjuk,
+                    // egyébként a pad nyers értékét.
+                    stat("Kalória", kcalText)
+                    stat(watchHeartRate.freshHeartRate() > 0 ? "Pulzus · Watch" : "Pulzus",
+                         heartRateText)
+                }
+                GridRow {
+                    stat("Szint fel", String(format: "%.0f m",
+                                             recorder.activeSession?.elevationGainM ?? 0))
+                    stat("Lépések", client.state.steps > 0 ? "\(client.state.steps)" : "–")
+                }
             }
         }
+    }
+
+    private func compactStat(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title.uppercased())
+                .font(Brand.display(8, .medium))
+                .tracking(1)
+                .foregroundStyle(Brand.grey)
+                .lineLimit(1)
+            Text(value)
+                .font(Brand.display(15, .semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Brand.bgElev1, in: RoundedRectangle(cornerRadius: Brand.radius))
+        .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
     }
 
     private var heartRateText: String {
@@ -228,9 +272,83 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Aktív edzésprogram
+    // MARK: - Aktív edzésprogram (felül, kompakt sávként)
 
-    private var programSection: some View {
+    @ViewBuilder
+    private var programPanel: some View {
+        switch runner.runnerState {
+        case .running(let index, let remaining), .suspended(let index, let remaining):
+            programStrip(segmentIndex: index, segmentRemaining: remaining)
+        default:
+            programArmingPanel
+        }
+    }
+
+    /// Futó/felfüggesztett program: tömör sáv a képernyő tetején — szakasz,
+    /// NAGY szakasz-visszaszámláló, következő szakasz, haladás, leállítás.
+    private func programStrip(segmentIndex: Int, segmentRemaining: TimeInterval) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if case .suspended = runner.runnerState {
+                HStack(spacing: 6) {
+                    Image(systemName: "pause.circle")
+                    Text("FELFÜGGESZTVE — A SZALAG NEM FUT").tracking(1)
+                }
+                .font(Brand.display(10, .semibold))
+                .foregroundStyle(Brand.accent)
+            }
+            if let segment = runner.currentSegment, let program = runner.program {
+                HStack(alignment: .center, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(segmentIndex + 1)/\(program.segments.count) · \(segment.name)")
+                            .font(Brand.display(14, .semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        if let next = runner.nextSegment {
+                            Text("→ \(next.name) · "
+                                 + String(format: "%.1f km/h, %d%%", next.targetSpeedKmh, next.targetIncline))
+                                .font(.caption)
+                                .foregroundStyle(Brand.fgDim)
+                                .lineLimit(1)
+                        } else {
+                            Text("🏁 Ez az utolsó szakasz")
+                                .font(.caption)
+                                .foregroundStyle(Brand.fgDim)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    VStack(alignment: .trailing, spacing: 0) {
+                        // A szakasz-visszaszámláló a program lelke — nagyban.
+                        Text(formattedTime(Int(segmentRemaining)))
+                            .font(Brand.display(30, .bold))
+                            .foregroundStyle(Brand.accent)
+                            .contentTransition(.numericText(countsDown: true))
+                        if let programRemaining = runner.programRemainingSeconds {
+                            Text("Σ " + SessionFormat.duration(programRemaining))
+                                .font(Brand.display(11, .medium))
+                                .foregroundStyle(Brand.grey)
+                        }
+                    }
+                    Button {
+                        runner.stop()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Brand.danger)
+                            .frame(width: 32, height: 32)
+                            .background(Brand.bgElev2, in: RoundedRectangle(cornerRadius: Brand.radius))
+                            .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
+                    }
+                }
+                if let progress = runner.programProgress {
+                    programProgressBar(progress)
+                }
+            }
+        }
+        .brandBox(padding: 12)
+    }
+
+    /// Élesítés/padra várás — ugyanitt, felül.
+    private var programArmingPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
             BrandEyebrow("Edzésprogram")
 
@@ -271,63 +389,9 @@ struct DashboardView: View {
                     }
                     .buttonStyle(BrandStrokeStyle(color: Brand.danger))
                 }
-            case .running(let index, let remaining), .suspended(let index, let remaining):
-                VStack(alignment: .leading, spacing: 10) {
-                    if case .suspended = runner.runnerState {
-                        HStack(spacing: 6) {
-                            Image(systemName: "pause.circle")
-                            Text("FELFÜGGESZTVE — A SZALAG NEM FUT").tracking(1)
-                        }
-                        .font(Brand.display(10, .semibold))
-                        .foregroundStyle(Brand.accent)
-                    }
-                    if let segment = runner.currentSegment, let program = runner.program {
-                        HStack(alignment: .firstTextBaseline) {
-                            Text("\(index + 1)/\(program.segments.count) · \(segment.name)")
-                                .font(Brand.display(15, .semibold))
-                                .foregroundStyle(.white)
-                            Spacer()
-                            if let programRemaining = runner.programRemainingSeconds {
-                                Text("HÁTRA " + SessionFormat.duration(programRemaining))
-                                    .font(Brand.display(12, .semibold))
-                                    .tracking(1)
-                                    .foregroundStyle(Brand.accent)
-                            }
-                        }
-                        if let progress = runner.programProgress {
-                            programProgressBar(progress)
-                        }
-                        Text("Szakaszból hátra: \(formattedTime(Int(remaining))) · cél: "
-                             + String(format: "%.1f km/h, %d%%", segment.targetSpeedKmh, segment.targetIncline))
-                            .font(.caption)
-                            .foregroundStyle(Brand.grey)
-                        if let next = runner.nextSegment {
-                            HStack(spacing: 5) {
-                                Image(systemName: "arrow.right")
-                                    .font(.caption2.weight(.bold))
-                                Text("Következő: \(next.name) · "
-                                     + String(format: "%.1f km/h, %d%%", next.targetSpeedKmh, next.targetIncline))
-                            }
-                            .font(.caption)
-                            .foregroundStyle(Brand.fgDim)
-                        } else {
-                            HStack(spacing: 5) {
-                                Image(systemName: "flag.checkered")
-                                    .font(.caption2)
-                                Text("Ez az utolsó szakasz")
-                            }
-                            .font(.caption)
-                            .foregroundStyle(Brand.fgDim)
-                        }
-                    }
-                    Button {
-                        runner.stop()
-                    } label: {
-                        Text("PROGRAM LEÁLLÍTÁSA").tracking(1.5)
-                    }
-                    .buttonStyle(BrandStrokeStyle(color: Brand.danger))
-                }
-            case .idle, .finished:
+            case .running, .suspended, .idle, .finished:
+                // Ezeket az állapotokat a programPanel a kompakt sávra
+                // irányítja, ide nem jutnak el.
                 EmptyView()
             }
         }
