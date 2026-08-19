@@ -11,6 +11,16 @@ struct BodyProfile: Equatable {
     static let fallback = BodyProfile(weightKg: 75, heightCm: 175, age: 40, isMale: true)
 }
 
+/// Emelkedés-számítás a sebességből és a dőlésből: kis szögeknél a
+/// megtett út × dőlés% jó közelítés (10 km/h @ 10% = 1000 m/óra).
+/// Csak a pozitív dőlésen megtett út számít „szint fel"-nek.
+enum ElevationMath {
+    static func gainPerSecond(speedKmh: Double, inclinePercent: Int) -> Double {
+        guard speedKmh > 0, inclinePercent > 0 else { return 0 }
+        return speedKmh / 3.6 * Double(inclinePercent) / 100
+    }
+}
+
 /// Kalóriabecslés. Két üzemmód:
 /// - pulzus birtokában HR-alapú (Keytel és tsai., 2005, J Sports Sci);
 /// - anélkül MET-alapú, az ACSM gyaloglás/futás VO2-egyenleteiből.

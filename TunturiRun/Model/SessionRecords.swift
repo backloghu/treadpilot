@@ -24,6 +24,8 @@ final class WorkoutSessionRecord {
     /// Volt-e aktív Watch-session az edzés alatt — ilyenkor a Watch menti a
     /// workoutot a Healthbe, az iPhone-oldali export kihagyandó (duplikáció).
     var watchProvidedHeartRate: Bool = false
+    /// Összes megtett emelkedés méterben (sebesség × pozitív dőlés integrálja).
+    var elevationGainM: Double = 0
 
     @Relationship(deleteRule: .cascade, inverse: \WorkoutSampleRecord.session)
     var samples: [WorkoutSampleRecord]

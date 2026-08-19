@@ -159,6 +159,11 @@ struct DashboardView: View {
                 stat(watchHeartRate.freshHeartRate() > 0 ? "Pulzus · Watch" : "Pulzus",
                      heartRateText)
             }
+            GridRow {
+                stat("Szint fel", String(format: "%.0f m",
+                                         recorder.activeSession?.elevationGainM ?? 0))
+                stat("Lépések", client.state.steps > 0 ? "\(client.state.steps)" : "–")
+            }
         }
     }
 

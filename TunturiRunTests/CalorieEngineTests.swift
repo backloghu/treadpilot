@@ -67,6 +67,28 @@ final class CalorieEngineTests: XCTestCase {
                        accuracy: 0.0001)
     }
 
+    // MARK: - Emelkedés (szint fel)
+
+    func testElevationGainAtTenPercent() {
+        // 10 km/h @ 10%: 2,7778 m/s × 0,10 = 0,27778 m/mp (≈1000 m/óra).
+        XCTAssertEqual(ElevationMath.gainPerSecond(speedKmh: 10, inclinePercent: 10),
+                       0.27778, accuracy: 0.0001)
+    }
+
+    func testElevationGainIgnoresFlatAndDownhill() {
+        XCTAssertEqual(ElevationMath.gainPerSecond(speedKmh: 10, inclinePercent: 0), 0)
+        XCTAssertEqual(ElevationMath.gainPerSecond(speedKmh: 10, inclinePercent: -3), 0)
+        XCTAssertEqual(ElevationMath.gainPerSecond(speedKmh: 0, inclinePercent: 5), 0)
+    }
+
+    func testElevationGainIntegratesToPlausibleTotal() {
+        // 30 perc 6 km/h @ 5%-on: 1800 × (1,6667 × 0,05) = 150 m szint.
+        let total = (0..<1800).reduce(0.0) { sum, _ in
+            sum + ElevationMath.gainPerSecond(speedKmh: 6, inclinePercent: 5)
+        }
+        XCTAssertEqual(total, 150, accuracy: 0.5)
+    }
+
     func testLowHeartRateBelowThresholdUsesMET() {
         let lowHR = CalorieEngine.kcalForSecond(speedKmh: 5, inclinePercent: 0,
                                                 heartRate: CalorieEngine.heartRateThreshold - 1,

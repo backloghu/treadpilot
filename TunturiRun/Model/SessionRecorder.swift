@@ -126,6 +126,10 @@ final class SessionRecorder: ObservableObject {
             heartRate: heartRate,
             profile: profileProvider?() ?? .fallback
         )
+        session.elevationGainM += ElevationMath.gainPerSecond(
+            speedKmh: state.speedKmh,
+            inclinePercent: state.inclinePercent
+        )
         session.maxSpeedKmh = max(session.maxSpeedKmh, state.speedKmh)
         speedSum += state.speedKmh
         session.avgSpeedKmh = speedSum / Double(session.movingSeconds)
