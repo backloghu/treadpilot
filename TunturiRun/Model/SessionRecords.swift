@@ -26,6 +26,8 @@ final class WorkoutSessionRecord {
     var watchProvidedHeartRate: Bool = false
     /// Összes megtett emelkedés méterben (sebesség × pozitív dőlés integrálja).
     var elevationGainM: Double = 0
+    /// Demó (szimulált pad) edzés — nem kerül az Apple Healthbe.
+    var isDemo: Bool = false
 
     @Relationship(deleteRule: .cascade, inverse: \WorkoutSampleRecord.session)
     var samples: [WorkoutSampleRecord]

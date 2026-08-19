@@ -52,7 +52,14 @@ struct SummaryView: View {
 
             // A session saját jelzői az elsődlegesek — az exporter állapota
             // csak a folyamatban lévő/sikertelen mentést árnyalja.
-            if session.healthKitSynced {
+            if session.isDemo {
+                HStack(spacing: 6) {
+                    Image(systemName: "play.rectangle")
+                    Text("DEMÓ EDZÉS — NEM KERÜL A HEALTHBE").tracking(1)
+                }
+                .font(Brand.display(11, .semibold))
+                .foregroundStyle(Brand.grey)
+            } else if session.healthKitSynced {
                 HStack(spacing: 6) {
                     Image(systemName: "heart.fill")
                     Text("MENTVE A HEALTHBE").tracking(1.2)

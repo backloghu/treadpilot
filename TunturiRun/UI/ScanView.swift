@@ -26,7 +26,6 @@ struct ScanView: View {
                     .brandBox()
                 }
 
-                #if targetEnvironment(simulator)
                 VStack(alignment: .leading, spacing: 8) {
                     Button {
                         client.startDemo()
@@ -37,11 +36,11 @@ struct ScanView: View {
                         }
                     }
                     .buttonStyle(BrandCTAStyle())
-                    Text("A szimulátorban nincs Bluetooth — a demó móddal a teljes felület kipróbálható.")
+                    Text("Nincs a közeledben futópad? A demó móddal szimulált padon "
+                         + "próbálhatod ki az app teljes felületét.")
                         .font(.footnote)
                         .foregroundStyle(Brand.grey)
                 }
-                #endif
 
                 BrandEyebrow("Talált futópadok")
                     .padding(.top, 8)

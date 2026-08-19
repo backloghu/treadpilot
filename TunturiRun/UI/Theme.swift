@@ -52,7 +52,7 @@ struct BrandWordmark: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Text("TUNTURIRUN")
+            Text("TREADPILOT")
                 .font(Brand.display(size, .semibold))
                 .tracking(1.5)
                 .foregroundStyle(.white)

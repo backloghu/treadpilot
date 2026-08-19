@@ -90,6 +90,7 @@ final class SessionRecorder: ObservableObject {
             deviceName: name,
             programName: runner?.activeProgramName
         )
+        session.isDemo = client.demoMode
         context.insert(session)
         activeSession = session
         speedSum = 0

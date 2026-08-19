@@ -13,7 +13,7 @@ targets:
     info:
       path: TunturiRun/Info.plist
       properties:
-        CFBundleDisplayName: TunturiRun
+        CFBundleDisplayName: TreadPilot
         UILaunchScreen: {}
         NSBluetoothAlwaysUsageDescription: >-
           A Bluetooth-hozzáférés a Tunturi futópad csatlakoztatásához,
@@ -44,6 +44,7 @@ targets:
         GENERATE_INFOPLIST_FILE: false
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        PRODUCT_BUNDLE_IDENTIFIER: dev.nitrolearning.treadpilot
     dependencies:
       - target: TunturiRunWatch
 
@@ -55,9 +56,9 @@ targets:
     info:
       path: TunturiRunWatch/Info.plist
       properties:
-        CFBundleDisplayName: TunturiRun
+        CFBundleDisplayName: TreadPilot
         WKApplication: true
-        WKCompanionAppBundleIdentifier: dev.nitrolearning.TunturiRun
+        WKCompanionAppBundleIdentifier: dev.nitrolearning.treadpilot
         # Enélkül watchOS-en nem futhat HKWorkoutSession (és a telefonról
         # indítás sem működik).
         WKBackgroundModes:
@@ -76,7 +77,7 @@ targets:
         # konkurencia-ellenőrzés bekapcsolása külön feladat.
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: false
-        PRODUCT_BUNDLE_IDENTIFIER: dev.nitrolearning.TunturiRun.watchkitapp
+        PRODUCT_BUNDLE_IDENTIFIER: dev.nitrolearning.treadpilot.watchkitapp
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
