@@ -2,6 +2,9 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var client: FitShowTreadmillClient
+    @EnvironmentObject private var runner: ProgramRunner
+    @EnvironmentObject private var recorder: SessionRecorder
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         NavigationStack {
@@ -35,6 +38,12 @@ struct ContentView: View {
         }
         .tint(Brand.accent)
         .preferredColorScheme(.dark)
+        .onAppear {
+            recorder.bind(client: client, runner: runner, context: modelContext)
+        }
+        .sheet(item: $recorder.finishedSession) { session in
+            SummaryView(session: session)
+        }
         // A riasztás itt él, nem a DashboardView-ban: kapcsolatvesztéskor a
         // dashboard kikerül a hierarchiából, de a figyelmeztetésnek pont akkor
         // kell látszania. Csak a felhasználó nyugtázása zárja be.
