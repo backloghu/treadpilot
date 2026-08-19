@@ -21,6 +21,9 @@ targets:
         NSHealthShareUsageDescription: >-
           A testadatok (súly, magasság, kor, nem) a pontos kalóriaszámításhoz
           szükségesek.
+        NSHealthUpdateUsageDescription: >-
+          Az edzések mentése az Egészség appba a futások megőrzéséhez és más
+          appokkal (pl. Strava) való megosztásához szükséges.
         UIBackgroundModes: [bluetooth-central]
         ITSAppUsesNonExemptEncryption: false
         UIAppFonts:
