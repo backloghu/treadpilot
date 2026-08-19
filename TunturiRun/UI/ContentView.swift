@@ -5,6 +5,7 @@ struct ContentView: View {
     @EnvironmentObject private var runner: ProgramRunner
     @EnvironmentObject private var recorder: SessionRecorder
     @EnvironmentObject private var profileStore: ProfileStore
+    @EnvironmentObject private var exporter: HealthKitExporter
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
@@ -47,6 +48,13 @@ struct ContentView: View {
         }
         .sheet(item: $recorder.finishedSession) { session in
             SummaryView(session: session)
+        }
+        .onReceive(recorder.$finishedSession) { session in
+            guard let session, exporter.autoSave, !session.healthKitSynced else { return }
+            Task {
+                await exporter.export(session)
+                try? modelContext.save()
+            }
         }
         // A riasztás itt él, nem a DashboardView-ban: kapcsolatvesztéskor a
         // dashboard kikerül a hierarchiából, de a figyelmeztetésnek pont akkor

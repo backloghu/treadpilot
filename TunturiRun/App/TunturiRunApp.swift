@@ -7,6 +7,7 @@ struct TunturiRunApp: App {
     @StateObject private var runner = ProgramRunner()
     @StateObject private var recorder = SessionRecorder()
     @StateObject private var profileStore = ProfileStore()
+    @StateObject private var exporter = HealthKitExporter()
 
     var body: some Scene {
         WindowGroup {
@@ -15,6 +16,7 @@ struct TunturiRunApp: App {
                 .environmentObject(runner)
                 .environmentObject(recorder)
                 .environmentObject(profileStore)
+                .environmentObject(exporter)
         }
         .modelContainer(for: [WorkoutSessionRecord.self, WorkoutSampleRecord.self,
                               CustomProgram.self, CustomSegmentRecord.self])

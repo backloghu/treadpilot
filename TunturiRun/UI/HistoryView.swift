@@ -64,6 +64,11 @@ private struct SessionRow: View {
                     .font(Brand.display(14, .semibold))
                     .foregroundStyle(.white)
                 Spacer()
+                if session.healthKitSynced {
+                    Image(systemName: "heart.fill")
+                        .font(.caption2)
+                        .foregroundStyle(Brand.accent)
+                }
                 if let program = session.programName {
                     Text(program)
                         .font(.caption)
