@@ -43,6 +43,36 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: false
         CODE_SIGN_STYLE: Automatic
+    dependencies:
+      - target: TunturiRunWatch
+
+  TunturiRunWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources: [TunturiRunWatch]
+    info:
+      path: TunturiRunWatch/Info.plist
+      properties:
+        CFBundleDisplayName: TunturiRun
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: dev.nitrolearning.TunturiRun
+        NSHealthShareUsageDescription: >-
+          A pulzus élő méréséhez és az iPhone-appba tükrözéséhez szükséges.
+        NSHealthUpdateUsageDescription: >-
+          Az edzés Watch-oldali rögzítéséhez szükséges.
+    entitlements:
+      path: TunturiRunWatch/TunturiRunWatch.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+    settings:
+      base:
+        # A HealthKit delegate-minták miatt itt Swift 5 mód fut — a szigorú
+        # konkurencia-ellenőrzés bekapcsolása külön feladat.
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: false
+        PRODUCT_BUNDLE_IDENTIFIER: dev.nitrolearning.TunturiRun.watchkitapp
+        CODE_SIGN_STYLE: Automatic
 
   TunturiRunTests:
     type: bundle.unit-test
