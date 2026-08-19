@@ -2,7 +2,7 @@ import Foundation
 
 /// Egy edzésprogram-szegmens: adott ideig tartandó cél sebesség és dőlés.
 struct WorkoutSegment: Identifiable, Equatable, Hashable {
-    let id = UUID()
+    var id = UUID()
     var name: String
     var duration: TimeInterval
     var targetSpeedKmh: Double
@@ -10,9 +10,10 @@ struct WorkoutSegment: Identifiable, Equatable, Hashable {
 }
 
 struct WorkoutProgram: Identifiable, Equatable, Hashable {
-    let id = UUID()
+    var id = UUID()
     var name: String
     var segments: [WorkoutSegment]
+    var isBuiltIn = false
 
     var totalDuration: TimeInterval {
         segments.reduce(0) { $0 + $1.duration }
@@ -24,7 +25,7 @@ struct WorkoutProgram: Identifiable, Equatable, Hashable {
             WorkoutSegment(name: "Séta", duration: 120, targetSpeedKmh: 3.0, targetIncline: 0),
             WorkoutSegment(name: "Tempós séta", duration: 120, targetSpeedKmh: 5.0, targetIncline: 1),
             WorkoutSegment(name: "Levezetés", duration: 120, targetSpeedKmh: 3.0, targetIncline: 0),
-        ]),
+        ], isBuiltIn: true),
         WorkoutProgram(name: "Intervall 5×(1+1) perc", segments: [
             WorkoutSegment(name: "Bemelegítés", duration: 180, targetSpeedKmh: 5.0, targetIncline: 0)
         ]
@@ -32,6 +33,7 @@ struct WorkoutProgram: Identifiable, Equatable, Hashable {
             WorkoutSegment(name: "Gyors \(round)", duration: 60, targetSpeedKmh: 9.0, targetIncline: 0),
             WorkoutSegment(name: "Pihenő \(round)", duration: 60, targetSpeedKmh: 6.0, targetIncline: 0),
         ]}
-        + [WorkoutSegment(name: "Levezetés", duration: 180, targetSpeedKmh: 4.5, targetIncline: 0)]),
+        + [WorkoutSegment(name: "Levezetés", duration: 180, targetSpeedKmh: 4.5, targetIncline: 0)],
+        isBuiltIn: true),
     ]
 }
