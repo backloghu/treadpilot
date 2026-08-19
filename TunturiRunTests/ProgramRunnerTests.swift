@@ -23,4 +23,18 @@ final class ProgramRunnerTests: XCTestCase {
         XCTAssertEqual(ProgramRunner.nextSegment(in: program, after: 1)?.name, "Levezetés")
         XCTAssertNil(ProgramRunner.nextSegment(in: program, after: 2))
     }
+
+    func testProgramSummaryComputations() {
+        // 600 mp @ 6 km/h @ 5% + 300 mp @ 12 km/h @ 0%:
+        // táv: 1,0 + 1,0 = 2,0 km; szint: 600 × 1,6667 × 0,05 = 50 m;
+        // átlag: 2,0 km / 0,25 h = 8,0 km/h.
+        let program = WorkoutProgram(name: "Összesítés", segments: [
+            WorkoutSegment(name: "A", duration: 600, targetSpeedKmh: 6.0, targetIncline: 5),
+            WorkoutSegment(name: "B", duration: 300, targetSpeedKmh: 12.0, targetIncline: 0),
+        ])
+        XCTAssertEqual(program.totalDistanceKm, 2.0, accuracy: 0.001)
+        XCTAssertEqual(program.totalElevationGainM, 50.0, accuracy: 0.1)
+        XCTAssertEqual(program.averageSpeedKmh, 8.0, accuracy: 0.001)
+        XCTAssertEqual(program.totalDuration, 900)
+    }
 }
