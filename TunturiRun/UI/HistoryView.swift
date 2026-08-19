@@ -3,7 +3,10 @@ import SwiftData
 import SwiftUI
 
 struct HistoryView: View {
-    @Query(sort: \WorkoutSessionRecord.startedAt, order: .reverse)
+    // Csak a lezárt edzések: az épp futó session nem törölhető/nyitható meg
+    // innen (a rögzítő élő modelljének törlése összeomlást okozna).
+    @Query(filter: #Predicate<WorkoutSessionRecord> { $0.endedAt != nil },
+           sort: \WorkoutSessionRecord.startedAt, order: .reverse)
     private var sessions: [WorkoutSessionRecord]
     @Environment(\.modelContext) private var context
 
@@ -103,7 +106,9 @@ struct SessionDetailView: View {
             VStack(alignment: .leading, spacing: 14) {
                 SessionStatsGrid(session: session)
 
-                let samples = session.sortedSamples
+                // Hosszú edzésnél ritkított mintasor, hogy a grafikon ne
+                // épüljön több ezer pontból.
+                let samples = downsampled(session.sortedSamples, to: 600)
                 if samples.count > 1 {
                     VStack(alignment: .leading, spacing: 10) {
                         BrandEyebrow("Sebesség (km/h)")
@@ -153,6 +158,12 @@ struct SessionDetailView: View {
         }
         .toolbarBackground(Brand.bgDeep, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
+    }
+
+    private func downsampled(_ samples: [WorkoutSampleRecord], to limit: Int) -> [WorkoutSampleRecord] {
+        guard samples.count > limit else { return samples }
+        let step = samples.count / limit + 1
+        return samples.enumerated().compactMap { $0.offset % step == 0 ? $0.element : nil }
     }
 }
 

@@ -43,6 +43,17 @@ final class ProgramRunner: ObservableObject {
         }
     }
 
+    /// A ténylegesen futó/induló program neve — a .finished/.idle állapotban
+    /// maradt program nem címkézhet fel későbbi kézi edzéseket.
+    var activeProgramName: String? {
+        switch runnerState {
+        case .armed, .waitingForBelt, .running, .suspended:
+            return program?.name
+        case .idle, .finished:
+            return nil
+        }
+    }
+
     // MARK: - Indítási utak
 
     /// Program indítása már futó szalagon: azonnal kezdődik az első szegmens.
@@ -123,9 +134,15 @@ final class ProgramRunner: ObservableObject {
             }
 
         case .running(let index, let remaining):
-            // Konzolos stop/pause/biztonsági kulcs: felfüggesztés.
             guard client.state.isRunning else {
-                runnerState = .suspended(segmentIndex: index, remaining: remaining)
+                if client.state.status == .idle || client.state.status == .end {
+                    // A szalag teljesen leállt — a program megszakadt, nem
+                    // szabad egy későbbi kézi indításnál magától folytatódnia.
+                    stop()
+                } else {
+                    // Szünet / leállás folyamatban: felfüggesztés.
+                    runnerState = .suspended(segmentIndex: index, remaining: remaining)
+                }
                 return
             }
             let newRemaining = remaining - 1
@@ -149,6 +166,9 @@ final class ProgramRunner: ObservableObject {
             if client.state.isRunning {
                 runnerState = .running(segmentIndex: index, remaining: remaining)
                 if let segment = currentSegment { apply(segment) }
+            } else if client.state.status == .idle || client.state.status == .end {
+                // Szünet helyett teljes leállás lett belőle: a program megszakadt.
+                stop()
             }
 
         case .idle, .finished:

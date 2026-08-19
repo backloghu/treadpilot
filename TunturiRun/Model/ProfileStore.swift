@@ -20,12 +20,16 @@ final class ProfileStore: ObservableObject {
 
     private let store = HKHealthStore()
     private let defaults = UserDefaults.standard
+    // A didSet init közben is lefut — betöltés alatt tilos visszaírni,
+    // különben az elsőként betöltött mező kitörölné a többi mentett felülírást.
+    private var isLoading = true
 
     init() {
         overrideWeightKg = defaults.object(forKey: "profile.weight") as? Double
         overrideHeightCm = defaults.object(forKey: "profile.height") as? Double
         overrideAge = defaults.object(forKey: "profile.age") as? Int
         overrideIsMale = defaults.object(forKey: "profile.isMale") as? Bool
+        isLoading = false
     }
 
     var effectiveProfile: BodyProfile {
@@ -97,6 +101,7 @@ final class ProfileStore: ObservableObject {
     }
 
     private func saveOverrides() {
+        guard !isLoading else { return }
         setOrRemove(overrideWeightKg, key: "profile.weight")
         setOrRemove(overrideHeightCm, key: "profile.height")
         setOrRemove(overrideAge, key: "profile.age")

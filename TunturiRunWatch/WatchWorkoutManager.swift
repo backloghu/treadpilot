@@ -7,6 +7,9 @@ import HealthKit
 @MainActor
 final class WatchWorkoutManager: NSObject, ObservableObject {
 
+    /// Közös példány — az app UI-ja és a WKApplicationDelegate ugyanazt éri el.
+    static let shared = WatchWorkoutManager()
+
     @Published private(set) var heartRate = 0
     @Published private(set) var isActive = false
     @Published private(set) var statusText: String?

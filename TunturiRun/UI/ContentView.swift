@@ -47,9 +47,12 @@ struct ContentView: View {
                 profileStore?.effectiveProfile ?? .fallback
             }
             recorder.externalHeartRateProvider = { [weak watchHeartRate] in
-                watchHeartRate?.heartRate ?? 0
+                watchHeartRate?.freshHeartRate() ?? 0
             }
-            watchHeartRate.activate()
+            recorder.onWorkoutEnded = { [weak watchHeartRate] in
+                // A rövid, eldobott edzésnél is le kell zárni a Watch-workoutot.
+                watchHeartRate?.endWatchWorkout()
+            }
         }
         .onReceive(recorder.$activeSession) { session in
             // A pad edzésének indulásakor a Watch-app is induljon (ha van Watch).
@@ -61,8 +64,8 @@ struct ContentView: View {
         }
         .onReceive(recorder.$finishedSession) { session in
             guard let session else { return }
-            watchHeartRate.endWatchWorkout()
-            guard exporter.autoSave, !session.healthKitSynced else { return }
+            guard exporter.autoSave, !session.healthKitSynced,
+                  !session.watchProvidedHeartRate else { return }
             Task {
                 await exporter.export(session)
                 try? modelContext.save()

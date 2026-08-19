@@ -40,42 +40,47 @@ struct SummaryView: View {
             .toolbarBackground(.visible, for: .navigationBar)
         }
         .preferredColorScheme(.dark)
-        .onAppear { exporter.resetState() }
+        .onAppear {
+            // Előző edzésből maradt állapot törlése (folyamatban lévőt nem bánt).
+            if !session.healthKitSynced { exporter.resetState() }
+        }
     }
 
     private var healthSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             BrandEyebrow("Apple Health")
 
-            switch exporter.state {
-            case .saved:
+            // A session saját jelzői az elsődlegesek — az exporter állapota
+            // csak a folyamatban lévő/sikertelen mentést árnyalja.
+            if session.healthKitSynced {
                 HStack(spacing: 6) {
                     Image(systemName: "heart.fill")
                     Text("MENTVE A HEALTHBE").tracking(1.2)
                 }
                 .font(Brand.display(12, .semibold))
                 .foregroundStyle(Brand.accent)
-            case .saving:
-                HStack(spacing: 10) {
-                    ProgressView().tint(Brand.accent)
-                    Text("MENTÉS…").tracking(1.2)
-                        .font(Brand.display(12, .semibold))
-                        .foregroundStyle(Brand.fgMid)
+            } else if session.watchProvidedHeartRate {
+                HStack(spacing: 6) {
+                    Image(systemName: "applewatch")
+                    Text("A WATCH MENTI A HEALTHBE").tracking(1.2)
                 }
-            case .failed(let message):
-                Text(message)
-                    .font(.footnote)
-                    .foregroundStyle(Brand.danger)
-                saveButton
-            case .idle:
-                if session.healthKitSynced {
-                    HStack(spacing: 6) {
-                        Image(systemName: "heart.fill")
-                        Text("MÁR MENTVE A HEALTHBE").tracking(1.2)
+                .font(Brand.display(12, .semibold))
+                .foregroundStyle(Brand.accent)
+            } else {
+                switch exporter.state {
+                case .saving:
+                    HStack(spacing: 10) {
+                        ProgressView().tint(Brand.accent)
+                        Text("MENTÉS…").tracking(1.2)
+                            .font(Brand.display(12, .semibold))
+                            .foregroundStyle(Brand.fgMid)
                     }
-                    .font(Brand.display(12, .semibold))
-                    .foregroundStyle(Brand.accent)
-                } else {
+                case .failed(let message):
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(Brand.danger)
+                    saveButton
+                case .idle, .saved:
                     saveButton
                 }
             }

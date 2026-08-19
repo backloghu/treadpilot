@@ -8,7 +8,14 @@ struct TunturiRunApp: App {
     @StateObject private var recorder = SessionRecorder()
     @StateObject private var profileStore = ProfileStore()
     @StateObject private var exporter = HealthKitExporter()
-    @StateObject private var watchHeartRate = WatchHeartRateManager()
+    @StateObject private var watchHeartRate = WatchHeartRateManager.shared
+
+    init() {
+        // A tükrözés-átvevőt már app-induláskor regisztrálni kell: a HealthKit
+        // háttérben is elindíthatja az appot egy Watch-session átadásához,
+        // amikor UI (és onAppear) még nincs.
+        WatchHeartRateManager.shared.activate()
+    }
 
     var body: some Scene {
         WindowGroup {

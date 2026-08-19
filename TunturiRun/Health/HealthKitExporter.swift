@@ -19,12 +19,16 @@ final class HealthKitExporter: ObservableObject {
     }
 
     private let store = HKHealthStore()
+    private var isExporting = false
 
     init() {
         autoSave = UserDefaults.standard.object(forKey: "health.autosave") as? Bool ?? true
     }
 
+    /// Elavult (előző edzéshez tartozó) állapot törlése — folyamatban lévő
+    /// mentést nem szakít meg.
     func resetState() {
+        guard !isExporting else { return }
         state = .idle
     }
 
@@ -40,6 +44,16 @@ final class HealthKitExporter: ObservableObject {
             state = .saved
             return
         }
+        // Ha a Watch-session rögzítette a pulzust, a Watch menti a saját
+        // workoutját a Healthbe — az iPhone-oldali mentés duplikálna.
+        guard !session.watchProvidedHeartRate else {
+            state = .idle
+            return
+        }
+        // Egyidejű mentés (automatikus + kézi gomb) ellen: egyszerre csak egy.
+        guard !isExporting else { return }
+        isExporting = true
+        defer { isExporting = false }
         state = .saving
 
         let workoutType = HKObjectType.workoutType()
@@ -71,8 +85,11 @@ final class HealthKitExporter: ObservableObject {
         do {
             try await builder.beginCollection(at: start)
 
+            // Csak azokat a mintatípusokat írjuk, amikre a felhasználó engedélyt
+            // adott — egy letiltott típus ne buktassa el az egész mentést.
             var samples: [HKSample] = []
-            if session.distanceKm > 0 {
+            if session.distanceKm > 0,
+               store.authorizationStatus(for: distanceType) == .sharingAuthorized {
                 samples.append(HKQuantitySample(
                     type: distanceType,
                     quantity: HKQuantity(unit: .meterUnit(with: .kilo), doubleValue: session.distanceKm),
@@ -80,24 +97,29 @@ final class HealthKitExporter: ObservableObject {
                 ))
             }
             let kcal = session.computedKcal > 0 ? session.computedKcal : Double(session.padKcal)
-            if kcal > 0 {
+            if kcal > 0, store.authorizationStatus(for: energyType) == .sharingAuthorized {
                 samples.append(HKQuantitySample(
                     type: energyType,
                     quantity: HKQuantity(unit: .kilocalorie(), doubleValue: kcal),
                     start: start, end: end
                 ))
             }
-            // Pulzusminták ritkítva (15 mp-enként), hogy ne árasszuk el a Healtht.
-            let bpmUnit = HKUnit.count().unitDivided(by: .minute())
-            for sample in session.sortedSamples
-            where sample.heartRate > 0 && sample.offsetSeconds % 15 == 0 {
-                let timestamp = start.addingTimeInterval(TimeInterval(sample.offsetSeconds))
-                guard timestamp <= end else { break }
-                samples.append(HKQuantitySample(
-                    type: heartRateType,
-                    quantity: HKQuantity(unit: bpmUnit, doubleValue: Double(sample.heartRate)),
-                    start: timestamp, end: timestamp
-                ))
+            // Pulzusminták ritkítva (15 mp-enként), valós időbélyeggel — a
+            // mozgásidő-offset szünetek után elcsúszna a fali órától.
+            if store.authorizationStatus(for: heartRateType) == .sharingAuthorized {
+                let bpmUnit = HKUnit.count().unitDivided(by: .minute())
+                for sample in session.sortedSamples
+                where sample.heartRate > 0 && sample.offsetSeconds % 15 == 0 {
+                    let timestamp = sample.timestamp > start
+                        ? sample.timestamp
+                        : start.addingTimeInterval(TimeInterval(sample.offsetSeconds))
+                    guard timestamp <= end else { continue }
+                    samples.append(HKQuantitySample(
+                        type: heartRateType,
+                        quantity: HKQuantity(unit: bpmUnit, doubleValue: Double(sample.heartRate)),
+                        start: timestamp, end: timestamp
+                    ))
+                }
             }
             if !samples.isEmpty {
                 try await builder.addSamples(samples)

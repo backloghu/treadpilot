@@ -11,10 +11,17 @@ struct DashboardView: View {
     @Query(sort: \CustomProgram.createdAt) private var customPrograms: [CustomProgram]
     @State private var showStartConfirmation = false
     @State private var showProgramStartConfirmation = false
-    @State private var selectedProgram = WorkoutProgram.builtIn[0]
+    @State private var selectedProgramId: UUID = WorkoutProgram.builtIn[0].id
 
     private var programOptions: [WorkoutProgram] {
         WorkoutProgram.builtIn + customPrograms.map(\.asWorkoutProgram)
+    }
+
+    /// A kiválasztott program mindig frissen, a tárból feloldva — így a
+    /// szerkesztőben módosított vagy törölt program nem indulhat el régi
+    /// pillanatképként.
+    private var selectedProgram: WorkoutProgram {
+        programOptions.first(where: { $0.id == selectedProgramId }) ?? WorkoutProgram.builtIn[0]
     }
 
     var body: some View {
@@ -149,16 +156,15 @@ struct DashboardView: View {
                 // egyébként a pad nyers értékét.
                 stat("Kalória", recorder.activeSession.map { "\(Int($0.computedKcal.rounded())) kcal" }
                                 ?? "\(client.state.kcal) kcal")
-                stat(watchHeartRate.sessionActive && watchHeartRate.heartRate > 0 ? "Pulzus · Watch" : "Pulzus",
+                stat(watchHeartRate.freshHeartRate() > 0 ? "Pulzus · Watch" : "Pulzus",
                      heartRateText)
             }
         }
     }
 
     private var heartRateText: String {
-        if watchHeartRate.sessionActive && watchHeartRate.heartRate > 0 {
-            return "\(watchHeartRate.heartRate) bpm"
-        }
+        let watchBpm = watchHeartRate.freshHeartRate()
+        if watchBpm > 0 { return "\(watchBpm) bpm" }
         return client.state.heartRate > 0 ? "\(client.state.heartRate) bpm" : "–"
     }
 
@@ -327,9 +333,9 @@ struct DashboardView: View {
                 .buttonStyle(BrandStrokeStyle())
             case .idle:
                 HStack {
-                    Picker("Program", selection: $selectedProgram) {
+                    Picker("Program", selection: $selectedProgramId) {
                         ForEach(programOptions) { program in
-                            Text(program.name).tag(program)
+                            Text(program.name).tag(program.id)
                         }
                     }
                     .pickerStyle(.menu)

@@ -21,6 +21,9 @@ final class WorkoutSessionRecord {
     var avgHeartRate: Int
     var maxHeartRate: Int
     var healthKitSynced: Bool
+    /// Volt-e aktív Watch-session az edzés alatt — ilyenkor a Watch menti a
+    /// workoutot a Healthbe, az iPhone-oldali export kihagyandó (duplikáció).
+    var watchProvidedHeartRate: Bool = false
 
     @Relationship(deleteRule: .cascade, inverse: \WorkoutSampleRecord.session)
     var samples: [WorkoutSampleRecord]
@@ -54,6 +57,9 @@ final class WorkoutSessionRecord {
 @Model
 final class WorkoutSampleRecord {
     var offsetSeconds: Int
+    /// Valós idejű időbélyeg — a Health-exporthoz kell, mert a mozgásidő-offset
+    /// szünetek után elcsúszna a fali órától.
+    var timestamp: Date = Date.distantPast
     var speedKmh: Double
     var inclinePercent: Int
     var heartRate: Int
@@ -63,6 +69,7 @@ final class WorkoutSampleRecord {
     init(offsetSeconds: Int, speedKmh: Double, inclinePercent: Int,
          heartRate: Int, distanceKm: Double) {
         self.offsetSeconds = offsetSeconds
+        self.timestamp = Date()
         self.speedKmh = speedKmh
         self.inclinePercent = inclinePercent
         self.heartRate = heartRate

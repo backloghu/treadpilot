@@ -7,16 +7,32 @@ import HealthKit
 @MainActor
 final class WatchHeartRateManager: NSObject, ObservableObject {
 
+    /// Közös példány: a tükrözés-átvételt az app indulásakor (háttér-indításnál
+    /// is) regisztrálni kell, nem csak az első képernyő megjelenésekor.
+    static let shared = WatchHeartRateManager()
+
     @Published private(set) var heartRate = 0
     @Published private(set) var sessionActive = false
 
     private let store = HKHealthStore()
     private var mirroredSession: HKWorkoutSession?
+    private var lastHeartRateAt: Date = .distantPast
+    private var handlerInstalled = false
+
+    /// Csak akkor ad pulzust, ha az frissnek számít — a Watch elhallgatása
+    /// (levett óra, link-vesztés) után nem szabad örökre a régi értéket
+    /// rögzíteni.
+    func freshHeartRate(maxAge: TimeInterval = 10) -> Int {
+        guard sessionActive, heartRate > 0,
+              Date().timeIntervalSince(lastHeartRateAt) <= maxAge else { return 0 }
+        return heartRate
+    }
 
     /// App-induláskor hívandó: átveszi a Watch által (vagy kérésünkre) indított
     /// tükrözött sessionöket — akkor is, ha az app a háttérből éled újra.
     func activate() {
-        guard HKHealthStore.isHealthDataAvailable() else { return }
+        guard HKHealthStore.isHealthDataAvailable(), !handlerInstalled else { return }
+        handlerInstalled = true
         store.workoutSessionMirroringStartHandler = { [weak self] session in
             Task { @MainActor in self?.adopt(session) }
         }
@@ -78,6 +94,9 @@ extension WatchHeartRateManager: HKWorkoutSessionDelegate {
             }
         }
         guard let latest else { return }
-        Task { @MainActor in self.heartRate = latest }
+        Task { @MainActor in
+            self.heartRate = latest
+            self.lastHeartRateAt = Date()
+        }
     }
 }
