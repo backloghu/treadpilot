@@ -58,6 +58,10 @@ targets:
         CFBundleDisplayName: TunturiRun
         WKApplication: true
         WKCompanionAppBundleIdentifier: dev.nitrolearning.TunturiRun
+        # Enélkül watchOS-en nem futhat HKWorkoutSession (és a telefonról
+        # indítás sem működik).
+        WKBackgroundModes:
+          - workout-processing
         NSHealthShareUsageDescription: >-
           A pulzus élő méréséhez és az iPhone-appba tükrözéséhez szükséges.
         NSHealthUpdateUsageDescription: >-

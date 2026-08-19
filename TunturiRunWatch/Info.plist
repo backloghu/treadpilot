@@ -26,6 +26,10 @@
 	<string>Az edzés Watch-oldali rögzítéséhez szükséges.</string>
 	<key>WKApplication</key>
 	<true/>
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>workout-processing</string>
+	</array>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>dev.nitrolearning.TunturiRun</string>
 </dict>

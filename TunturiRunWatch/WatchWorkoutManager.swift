@@ -46,8 +46,14 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
 
             let start = Date()
             session.startActivity(with: start)
-            builder.beginCollection(withStart: start) { _, _ in }
-            session.startMirroringToCompanionDevice { _, _ in }
+            builder.beginCollection(withStart: start) { [weak self] success, error in
+                guard !success, let message = error?.localizedDescription else { return }
+                Task { @MainActor in self?.statusText = "Gyűjtés-hiba: \(message)" }
+            }
+            session.startMirroringToCompanionDevice { [weak self] success, error in
+                guard !success, let message = error?.localizedDescription else { return }
+                Task { @MainActor in self?.statusText = "Tükrözés-hiba: \(message)" }
+            }
             isActive = true
             statusText = nil
         } catch {

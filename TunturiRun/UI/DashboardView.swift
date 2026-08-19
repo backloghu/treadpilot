@@ -16,6 +16,12 @@ struct DashboardView: View {
         ScrollView {
             VStack(spacing: 12) {
                 statusHeader
+                if let watchError = watchHeartRate.startError {
+                    Text(watchError)
+                        .font(.caption2)
+                        .foregroundStyle(Brand.accent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 // A program mindig felül, jól láthatóan — futás közben ez a
                 // legfontosabb információ.
                 if isProgramActive {
