@@ -215,9 +215,17 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
 
     // MARK: - Vezérlés (mindet explicit felhasználói művelet hívja)
 
-    /// A szalag indítása. Csak felhasználói megerősítés után hívható!
+    /// A szalag indítása a dashboardról. Csak felhasználói megerősítés után hívható!
     func userConfirmedStart() {
-        targetSpeedKmh = max(limits.minSpeedKmh, targetSpeedKmh)
+        startBelt(speedKmh: max(limits.minSpeedKmh, targetSpeedKmh), incline: targetIncline)
+    }
+
+    /// A szalag indítása adott célértékekkel. Programos indításnál a ProgramRunner
+    /// hívja — kizárólag a felhasználói megerősítés + a megszakítható app-oldali
+    /// visszaszámlálás után.
+    func startBelt(speedKmh: Double, incline: Int) {
+        targetSpeedKmh = min(max(speedKmh, limits.minSpeedKmh), limits.maxSpeedKmh)
+        targetIncline = min(max(incline, limits.minIncline), limits.maxIncline)
         targetsDirtyWhileNotRunning = false
         #if targetEnvironment(simulator)
         if demoMode { return demoStart() }

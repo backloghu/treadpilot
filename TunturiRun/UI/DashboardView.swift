@@ -6,6 +6,7 @@ struct DashboardView: View {
     @EnvironmentObject private var client: FitShowTreadmillClient
     @EnvironmentObject private var runner: ProgramRunner
     @State private var showStartConfirmation = false
+    @State private var showProgramStartConfirmation = false
     @State private var selectedProgram = WorkoutProgram.builtIn[0]
 
     var body: some View {
@@ -51,6 +52,21 @@ struct DashboardView: View {
             Button("Mégse", role: .cancel) {}
         } message: {
             Text("Állj a szalag két szélére, és csíptesd fel a biztonsági kulcsot.")
+        }
+        .confirmationDialog("Programot indítasz álló szalagon?",
+                            isPresented: $showProgramStartConfirmation,
+                            titleVisibility: .visible) {
+            Button("\(selectedProgram.name) indítása") {
+                runner.arm(selectedProgram, on: client)
+            }
+            Button("Mégse", role: .cancel) {}
+        } message: {
+            if let first = selectedProgram.segments.first {
+                Text("A(z) \(ProgramRunner.armCountdownSeconds) mp-es visszaszámlálás után "
+                     + "a szalag magától elindul, első szegmens: "
+                     + String(format: "%.1f km/h, %d%% dőlés.", first.targetSpeedKmh, first.targetIncline)
+                     + " Állj a szalag két szélére, biztonsági kulcs fel!")
+            }
         }
     }
 
@@ -215,6 +231,42 @@ struct DashboardView: View {
             BrandEyebrow("Edzésprogram")
 
             switch runner.runnerState {
+            case .armed(let remaining):
+                VStack(spacing: 10) {
+                    Text("\(remaining)")
+                        .font(Brand.display(64, .bold))
+                        .foregroundStyle(Brand.accent)
+                        .contentTransition(.numericText(countsDown: true))
+                        .frame(maxWidth: .infinity)
+                    Text("A szalag hamarosan elindul — állj a két szélére, biztonsági kulcs fel!")
+                        .font(.footnote)
+                        .foregroundStyle(Brand.fgDim)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                    Button {
+                        runner.cancelArm()
+                    } label: {
+                        Text("MÉGSE").tracking(1.5)
+                    }
+                    .buttonStyle(BrandStrokeStyle(color: Brand.danger))
+                }
+            case .waitingForBelt:
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        ProgressView().tint(Brand.accent)
+                        Text("A PAD INDUL…")
+                            .font(Brand.display(13, .semibold))
+                            .tracking(1.5)
+                            .foregroundStyle(Brand.fgMid)
+                    }
+                    .frame(maxWidth: .infinity)
+                    Button {
+                        runner.cancelArm()
+                    } label: {
+                        Text("MÉGSE").tracking(1.5)
+                    }
+                    .buttonStyle(BrandStrokeStyle(color: Brand.danger))
+                }
             case .running(let index, let remaining), .suspended(let index, let remaining):
                 VStack(alignment: .leading, spacing: 8) {
                     if case .suspended = runner.runnerState {
@@ -263,15 +315,19 @@ struct DashboardView: View {
                 .pickerStyle(.menu)
                 .tint(Brand.accent)
                 Button {
-                    runner.start(selectedProgram, on: client)
+                    if client.state.isRunning {
+                        runner.start(selectedProgram, on: client)
+                    } else {
+                        showProgramStartConfirmation = true
+                    }
                 } label: {
                     HStack { Image(systemName: "list.bullet"); Text("PROGRAM INDÍTÁSA").tracking(1.5) }
                 }
-                .buttonStyle(BrandStrokeStyle(color: client.state.isRunning ? Brand.accent : Brand.grey))
-                .disabled(!client.state.isRunning)
+                .buttonStyle(BrandStrokeStyle(color: Brand.accent))
+                .disabled(client.state.status == .countdown)
                 if !client.state.isRunning {
-                    Text("Programot csak már futó szalagon lehet indítani — "
-                         + "először indítsd el a padot az Indítás gombbal.")
+                    Text("Álló szalagon a program megerősítés és "
+                         + "\(ProgramRunner.armCountdownSeconds) mp visszaszámlálás után indítja a padot.")
                         .font(.footnote)
                         .foregroundStyle(Brand.grey)
                 }
