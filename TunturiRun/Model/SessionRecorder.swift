@@ -17,6 +17,8 @@ final class SessionRecorder: ObservableObject {
     private var timer: Timer?
     /// Az aktuális testadat-profil a kalóriaszámításhoz (a ProfileStore adja).
     var profileProvider: (@MainActor () -> BodyProfile)?
+    /// Külső (Apple Watch) pulzusforrás; 0 = nincs — ilyenkor a pad értéke él.
+    var externalHeartRateProvider: (@MainActor () -> Int)?
 
     private var speedSum = 0.0
     private var heartRateSum = 0
@@ -81,23 +83,27 @@ final class SessionRecorder: ObservableObject {
 
     private func record(_ state: TreadmillState) {
         guard let session = activeSession, let context else { return }
+        // Pulzus: a Watch élő adata elsőbbséget élvez a pad kéztartó-szenzorával szemben.
+        let externalHeartRate = externalHeartRateProvider?() ?? 0
+        let heartRate = externalHeartRate > 0 ? externalHeartRate : state.heartRate
+
         session.movingSeconds += 1
         session.distanceKm = max(session.distanceKm, state.distanceKm)
         session.padKcal = max(session.padKcal, state.kcal)
         session.computedKcal += CalorieEngine.kcalForSecond(
             speedKmh: state.speedKmh,
             inclinePercent: state.inclinePercent,
-            heartRate: state.heartRate,
+            heartRate: heartRate,
             profile: profileProvider?() ?? .fallback
         )
         session.maxSpeedKmh = max(session.maxSpeedKmh, state.speedKmh)
         speedSum += state.speedKmh
         session.avgSpeedKmh = speedSum / Double(session.movingSeconds)
-        if state.heartRate > 0 {
-            heartRateSum += state.heartRate
+        if heartRate > 0 {
+            heartRateSum += heartRate
             heartRateCount += 1
             session.avgHeartRate = heartRateSum / heartRateCount
-            session.maxHeartRate = max(session.maxHeartRate, state.heartRate)
+            session.maxHeartRate = max(session.maxHeartRate, heartRate)
         }
         // Ha a program frissebb, mint az indulás pillanata (programos indítás),
         // pótoljuk a nevét.
@@ -109,7 +115,7 @@ final class SessionRecorder: ObservableObject {
             offsetSeconds: session.movingSeconds,
             speedKmh: state.speedKmh,
             inclinePercent: state.inclinePercent,
-            heartRate: state.heartRate,
+            heartRate: heartRate,
             distanceKm: state.distanceKm
         )
         sample.session = session

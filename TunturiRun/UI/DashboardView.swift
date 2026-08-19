@@ -7,6 +7,7 @@ struct DashboardView: View {
     @EnvironmentObject private var client: FitShowTreadmillClient
     @EnvironmentObject private var runner: ProgramRunner
     @EnvironmentObject private var recorder: SessionRecorder
+    @EnvironmentObject private var watchHeartRate: WatchHeartRateManager
     @Query(sort: \CustomProgram.createdAt) private var customPrograms: [CustomProgram]
     @State private var showStartConfirmation = false
     @State private var showProgramStartConfirmation = false
@@ -148,9 +149,17 @@ struct DashboardView: View {
                 // egyébként a pad nyers értékét.
                 stat("Kalória", recorder.activeSession.map { "\(Int($0.computedKcal.rounded())) kcal" }
                                 ?? "\(client.state.kcal) kcal")
-                stat("Pulzus", client.state.heartRate > 0 ? "\(client.state.heartRate) bpm" : "–")
+                stat(watchHeartRate.sessionActive && watchHeartRate.heartRate > 0 ? "Pulzus · Watch" : "Pulzus",
+                     heartRateText)
             }
         }
+    }
+
+    private var heartRateText: String {
+        if watchHeartRate.sessionActive && watchHeartRate.heartRate > 0 {
+            return "\(watchHeartRate.heartRate) bpm"
+        }
+        return client.state.heartRate > 0 ? "\(client.state.heartRate) bpm" : "–"
     }
 
     private func stat(_ title: String, _ value: String) -> some View {

@@ -6,6 +6,7 @@ struct ContentView: View {
     @EnvironmentObject private var recorder: SessionRecorder
     @EnvironmentObject private var profileStore: ProfileStore
     @EnvironmentObject private var exporter: HealthKitExporter
+    @EnvironmentObject private var watchHeartRate: WatchHeartRateManager
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
@@ -45,12 +46,23 @@ struct ContentView: View {
             recorder.profileProvider = { [weak profileStore] in
                 profileStore?.effectiveProfile ?? .fallback
             }
+            recorder.externalHeartRateProvider = { [weak watchHeartRate] in
+                watchHeartRate?.heartRate ?? 0
+            }
+            watchHeartRate.activate()
+        }
+        .onReceive(recorder.$activeSession) { session in
+            // A pad edzésének indulásakor a Watch-app is induljon (ha van Watch).
+            guard session != nil else { return }
+            Task { await watchHeartRate.startWatchWorkout() }
         }
         .sheet(item: $recorder.finishedSession) { session in
             SummaryView(session: session)
         }
         .onReceive(recorder.$finishedSession) { session in
-            guard let session, exporter.autoSave, !session.healthKitSynced else { return }
+            guard let session else { return }
+            watchHeartRate.endWatchWorkout()
+            guard exporter.autoSave, !session.healthKitSynced else { return }
             Task {
                 await exporter.export(session)
                 try? modelContext.save()
