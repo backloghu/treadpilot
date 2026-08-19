@@ -332,22 +332,41 @@ struct DashboardView: View {
                 }
                 .buttonStyle(BrandStrokeStyle())
             case .idle:
-                HStack {
-                    Picker("Program", selection: $selectedProgramId) {
+                HStack(spacing: 10) {
+                    Menu {
                         ForEach(programOptions) { program in
-                            Text(program.name).tag(program.id)
+                            Button(program.name) { selectedProgramId = program.id }
                         }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(selectedProgram.name)
+                                .font(Brand.display(14, .semibold))
+                                .foregroundStyle(Brand.accent)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                            Spacer(minLength: 4)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(Brand.accent)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(height: 44)
+                        .background(Brand.bgElev2, in: RoundedRectangle(cornerRadius: Brand.radius))
+                        .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
                     }
-                    .pickerStyle(.menu)
-                    .tint(Brand.accent)
-                    Spacer()
                     NavigationLink {
                         ProgramListView()
                     } label: {
                         Image(systemName: "slider.horizontal.3")
                             .foregroundStyle(Brand.accent)
+                            .frame(width: 44, height: 44)
+                            .background(Brand.bgElev2, in: RoundedRectangle(cornerRadius: Brand.radius))
+                            .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
                     }
                 }
+                Text("\(SessionFormat.duration(Int(selectedProgram.totalDuration))) · \(selectedProgram.segments.count) szegmens")
+                    .font(.caption)
+                    .foregroundStyle(Brand.grey)
                 Button {
                     if client.state.isRunning {
                         runner.start(selectedProgram, on: client)

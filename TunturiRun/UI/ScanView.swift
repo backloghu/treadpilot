@@ -96,7 +96,7 @@ struct ScanView: View {
                     Image(systemName: "list.bullet.rectangle")
                 }
             }
-            ToolbarItem(placement: .principal) { BrandWordmark() }
+            ToolbarItem(placement: .principal) { BrandWordmark(size: 11) }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 NavigationLink {
                     ProfileView()

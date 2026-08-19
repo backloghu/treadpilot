@@ -64,6 +64,7 @@ struct BrandWordmark: View {
         .padding(.vertical, 6)
         .background(Brand.ink, in: RoundedRectangle(cornerRadius: Brand.radius))
         .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
+        .fixedSize() // a zsúfolt toolbar ne csonkolja a wordmarkot
     }
 }
 
