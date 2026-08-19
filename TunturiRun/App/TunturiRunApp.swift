@@ -14,6 +14,7 @@ struct TunturiRunApp: App {
                 .environmentObject(runner)
                 .environmentObject(recorder)
         }
-        .modelContainer(for: [WorkoutSessionRecord.self, WorkoutSampleRecord.self])
+        .modelContainer(for: [WorkoutSessionRecord.self, WorkoutSampleRecord.self,
+                              CustomProgram.self, CustomSegmentRecord.self])
     }
 }

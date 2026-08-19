@@ -89,6 +89,13 @@ struct ScanView: View {
                     Image(systemName: "clock.arrow.circlepath")
                 }
             }
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink {
+                    ProgramListView()
+                } label: {
+                    Image(systemName: "list.bullet.rectangle")
+                }
+            }
             ToolbarItem(placement: .principal) { BrandWordmark() }
             ToolbarItem(placement: .primaryAction) {
                 if client.phase == .scanning {

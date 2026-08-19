@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 struct DashboardView: View {
@@ -5,9 +6,14 @@ struct DashboardView: View {
 
     @EnvironmentObject private var client: FitShowTreadmillClient
     @EnvironmentObject private var runner: ProgramRunner
+    @Query(sort: \CustomProgram.createdAt) private var customPrograms: [CustomProgram]
     @State private var showStartConfirmation = false
     @State private var showProgramStartConfirmation = false
     @State private var selectedProgram = WorkoutProgram.builtIn[0]
+
+    private var programOptions: [WorkoutProgram] {
+        WorkoutProgram.builtIn + customPrograms.map(\.asWorkoutProgram)
+    }
 
     var body: some View {
         ScrollView {
@@ -307,13 +313,22 @@ struct DashboardView: View {
                 }
                 .buttonStyle(BrandStrokeStyle())
             case .idle:
-                Picker("Program", selection: $selectedProgram) {
-                    ForEach(WorkoutProgram.builtIn) { program in
-                        Text(program.name).tag(program)
+                HStack {
+                    Picker("Program", selection: $selectedProgram) {
+                        ForEach(programOptions) { program in
+                            Text(program.name).tag(program)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(Brand.accent)
+                    Spacer()
+                    NavigationLink {
+                        ProgramListView()
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .foregroundStyle(Brand.accent)
                     }
                 }
-                .pickerStyle(.menu)
-                .tint(Brand.accent)
                 Button {
                     if client.state.isRunning {
                         runner.start(selectedProgram, on: client)
