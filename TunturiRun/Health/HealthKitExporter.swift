@@ -124,6 +124,12 @@ final class HealthKitExporter: ObservableObject {
             if !samples.isEmpty {
                 try await builder.addSamples(samples)
             }
+            if session.elevationGainM > 0 {
+                try await builder.addMetadata([
+                    HKMetadataKeyElevationAscended:
+                        HKQuantity(unit: .meter(), doubleValue: session.elevationGainM)
+                ])
+            }
             try await builder.endCollection(at: end)
             _ = try await builder.finishWorkout()
             session.healthKitSynced = true

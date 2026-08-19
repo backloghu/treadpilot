@@ -185,6 +185,10 @@ struct SessionStatsGrid: View {
                 cell("Kalória", "\(session.displayKcal) kcal")
                 cell("Átlagpulzus", session.avgHeartRate > 0 ? "\(session.avgHeartRate) bpm" : "–")
             }
+            GridRow {
+                cell("Szint fel", String(format: "%.0f m", session.elevationGainM))
+                cell("Max pulzus", session.maxHeartRate > 0 ? "\(session.maxHeartRate) bpm" : "–")
+            }
             if session.pausedSeconds > 0 {
                 GridRow {
                     cell("Szünet", SessionFormat.duration(session.pausedSeconds))
