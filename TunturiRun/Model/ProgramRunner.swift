@@ -43,6 +43,50 @@ final class ProgramRunner: ObservableObject {
         }
     }
 
+    /// A következő szakasz, ha van még.
+    var nextSegment: WorkoutSegment? {
+        guard let program else { return nil }
+        switch runnerState {
+        case .running(let index, _), .suspended(let index, _):
+            return Self.nextSegment(in: program, after: index)
+        default:
+            return nil
+        }
+    }
+
+    /// A teljes programból hátralévő idő másodpercben.
+    var programRemainingSeconds: Int? {
+        guard let program else { return nil }
+        switch runnerState {
+        case .running(let index, let remaining), .suspended(let index, let remaining):
+            return Self.programRemainingSeconds(in: program, segmentIndex: index,
+                                                segmentRemaining: remaining)
+        default:
+            return nil
+        }
+    }
+
+    /// 0–1 haladás a teljes programban.
+    var programProgress: Double? {
+        guard let program, program.totalDuration > 0,
+              let remaining = programRemainingSeconds else { return nil }
+        return min(1, max(0, 1 - Double(remaining) / program.totalDuration))
+    }
+
+    nonisolated static func programRemainingSeconds(in program: WorkoutProgram,
+                                                    segmentIndex: Int,
+                                                    segmentRemaining: TimeInterval) -> Int {
+        let futureSeconds = program.segments.dropFirst(segmentIndex + 1)
+            .reduce(0.0) { $0 + $1.duration }
+        return max(0, Int(segmentRemaining.rounded()) + Int(futureSeconds))
+    }
+
+    nonisolated static func nextSegment(in program: WorkoutProgram,
+                                        after index: Int) -> WorkoutSegment? {
+        let next = index + 1
+        return program.segments.indices.contains(next) ? program.segments[next] : nil
+    }
+
     /// A ténylegesen futó/induló program neve — a .finished/.idle állapotban
     /// maradt program nem címkézhet fel későbbi kézi edzéseket.
     var activeProgramName: String? {
