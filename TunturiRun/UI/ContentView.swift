@@ -35,7 +35,13 @@ struct ContentView: View {
                         ToolbarItem(placement: .principal) { BrandWordmark() }
                     }
                 case .ready(let name):
-                    DashboardView(deviceName: name)
+                    // Aktív edzésnél az edzésképernyő, egyébként a kezdőképernyő
+                    // (manuális/program indítás, programok, előzmények, bontás).
+                    if isWorkoutActive {
+                        DashboardView(deviceName: name)
+                    } else {
+                        HomeView(deviceName: name)
+                    }
                 }
             }
         }
@@ -71,7 +77,7 @@ struct ContentView: View {
                 try? modelContext.save()
             }
         }
-        // A riasztás itt él, nem a DashboardView-ban: kapcsolatvesztéskor a
+        // A riasztás itt él, nem az edzésképernyőn: kapcsolatvesztéskor a
         // dashboard kikerül a hierarchiából, de a figyelmeztetésnek pont akkor
         // kell látszania. Csak a felhasználó nyugtázása zárja be.
         .alert("Megszakadt a kapcsolat futás közben!",
@@ -80,6 +86,23 @@ struct ContentView: View {
         } message: {
             Text("A szalag az utolsó beállított sebességgel mehet tovább. "
                  + "Használd a pad Stop gombját vagy a biztonsági kulcsot!")
+        }
+    }
+
+    /// Aktív az edzés, ha a szalag nem áll, vagy a programfuttató dolgozik
+    /// (élesítve / padra várva / fut / felfüggesztve).
+    private var isWorkoutActive: Bool {
+        switch runner.runnerState {
+        case .armed, .waitingForBelt, .running, .suspended:
+            return true
+        case .idle, .finished:
+            break
+        }
+        switch client.state.status {
+        case .idle, .end:
+            return false
+        default:
+            return true
         }
     }
 }
