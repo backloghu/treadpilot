@@ -19,6 +19,24 @@ struct WorkoutProgram: Identifiable, Equatable, Hashable {
         segments.reduce(0) { $0 + $1.duration }
     }
 
+    /// A program várható össztávja a szakaszok célsebességéből.
+    var totalDistanceKm: Double {
+        segments.reduce(0) { $0 + $1.duration / 3600 * $1.targetSpeedKmh }
+    }
+
+    /// A program várható összes emelkedése (csak a pozitív dőlésű szakaszok).
+    var totalElevationGainM: Double {
+        segments.reduce(0) {
+            $0 + ElevationMath.gainPerSecond(speedKmh: $1.targetSpeedKmh,
+                                             inclinePercent: $1.targetIncline) * $1.duration
+        }
+    }
+
+    /// Idővel súlyozott átlagsebesség.
+    var averageSpeedKmh: Double {
+        totalDuration > 0 ? totalDistanceKm / (totalDuration / 3600) : 0
+    }
+
     /// Beépített bemutató programok az első tesztekhez — szándékosan óvatos sebességekkel.
     static let builtIn: [WorkoutProgram] = [
         WorkoutProgram(name: "Óvatos teszt (6 perc)", segments: [

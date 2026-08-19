@@ -22,6 +22,13 @@ struct ProgramEditorView: View {
             }
 
             Section {
+                summaryRow
+                    .listRowBackground(Brand.bgElev1)
+            } header: {
+                BrandEyebrow("Összesítés")
+            }
+
+            Section {
                 ForEach(program.sortedSegments) { segment in
                     NavigationLink {
                         SegmentEditorView(segment: segment, limits: limits)
@@ -64,7 +71,7 @@ struct ProgramEditorView: View {
                 }
                 .listRowBackground(Brand.bgElev1)
             } header: {
-                BrandEyebrow("Szegmensek — összesen \(SessionFormat.duration(program.totalSeconds))")
+                BrandEyebrow("Szegmensek")
             }
         }
         .listStyle(.plain)
@@ -82,6 +89,31 @@ struct ProgramEditorView: View {
         .toolbarBackground(Brand.bgDeep, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .onDisappear { try? context.save() }
+    }
+
+    /// Élőben frissülő program-összesítés: idő, táv, emelkedés, átlagsebesség.
+    private var summaryRow: some View {
+        let workout = program.asWorkoutProgram
+        return HStack(spacing: 0) {
+            summaryCell("Idő", SessionFormat.duration(Int(workout.totalDuration)))
+            summaryCell("Táv", String(format: "%.2f km", workout.totalDistanceKm))
+            summaryCell("Szint", String(format: "%.0f m", workout.totalElevationGainM))
+            summaryCell("Átlag", String(format: "%.1f km/h", workout.averageSpeedKmh))
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func summaryCell(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title.uppercased())
+                .font(Brand.display(9, .medium))
+                .tracking(1.2)
+                .foregroundStyle(Brand.grey)
+            Text(value)
+                .font(Brand.display(13, .semibold))
+                .foregroundStyle(.white)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func addSegment() {
