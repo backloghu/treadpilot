@@ -13,6 +13,8 @@ final class WatchHeartRateManager: NSObject, ObservableObject {
 
     @Published private(set) var heartRate = 0
     @Published private(set) var sessionActive = false
+    /// A legutóbbi Watch-indítás hibaüzenete — diagnosztikához a dashboardon.
+    @Published private(set) var startError: String?
 
     private let store = HKHealthStore()
     private var mirroredSession: HKWorkoutSession?
@@ -39,13 +41,23 @@ final class WatchHeartRateManager: NSObject, ObservableObject {
     }
 
     /// A pad edzésének indulásakor megpróbáljuk elindítani a Watch-appot.
-    /// Watch nélkül csendben nem történik semmi.
+    /// A hibát nem nyeljük le: a dashboard kiírja, hogy diagnosztizálható legyen.
     func startWatchWorkout() async {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = .running
         configuration.locationType = .indoor
-        try? await store.startWatchApp(toHandle: configuration)
+        do {
+            // A Watch-indításhoz HealthKit-engedély is kell az iPhone-oldalon.
+            try await store.requestAuthorization(
+                toShare: [HKObjectType.workoutType()],
+                read: [HKQuantityType(.heartRate)]
+            )
+            try await store.startWatchApp(toHandle: configuration)
+            startError = nil
+        } catch {
+            startError = "Watch-indítás sikertelen: \(error.localizedDescription)"
+        }
     }
 
     /// Edzés vége: szólunk a Watchnak, hogy zárja le a saját sessionjét.
