@@ -8,6 +8,8 @@ struct ContentView: View {
     @EnvironmentObject private var exporter: HealthKitExporter
     @EnvironmentObject private var watchHeartRate: WatchHeartRateManager
     @Environment(\.modelContext) private var modelContext
+    @AppStorage("disclaimer.accepted") private var disclaimerAccepted = false
+    @State private var showDisclaimer = false
 
     var body: some View {
         NavigationStack {
@@ -47,7 +49,15 @@ struct ContentView: View {
         }
         .tint(Brand.accent)
         .preferredColorScheme(.dark)
+        .fullScreenCover(isPresented: $showDisclaimer) {
+            DisclaimerView {
+                disclaimerAccepted = true
+                showDisclaimer = false
+            }
+            .interactiveDismissDisabled()
+        }
         .onAppear {
+            showDisclaimer = !disclaimerAccepted
             recorder.bind(client: client, runner: runner, context: modelContext)
             recorder.profileProvider = { [weak profileStore] in
                 profileStore?.effectiveProfile ?? .fallback
@@ -62,7 +72,8 @@ struct ContentView: View {
         }
         .onReceive(recorder.$activeSession) { session in
             // A pad edzésének indulásakor a Watch-app is induljon (ha van Watch).
-            guard session != nil else { return }
+            // Demó edzés nem indít Watch-workoutot.
+            guard session != nil, !client.demoMode else { return }
             Task { await watchHeartRate.startWatchWorkout() }
         }
         .sheet(item: $recorder.finishedSession) { session in
@@ -71,7 +82,7 @@ struct ContentView: View {
         .onReceive(recorder.$finishedSession) { session in
             guard let session else { return }
             guard exporter.autoSave, !session.healthKitSynced,
-                  !session.watchProvidedHeartRate else { return }
+                  !session.watchProvidedHeartRate, !session.isDemo else { return }
             Task {
                 await exporter.export(session)
                 try? modelContext.save()

@@ -85,7 +85,6 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
 
     // MARK: - Demó mód (csak szimulátorban — a szimulátornak nincs Bluetooth-ja)
 
-    #if targetEnvironment(simulator)
     private(set) var demoMode = false
     private var demoTimer: Timer?
 
@@ -147,7 +146,6 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         state.status = .paused
         state.speedKmh = 0
     }
-    #endif
 
     // MARK: - Kapcsolat
 
@@ -203,9 +201,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     }
 
     func disconnect() {
-        #if targetEnvironment(simulator)
         if demoMode { return stopDemo() }
-        #endif
         userWantsConnection = false
         prepTimer?.invalidate()
         stopPolling()
@@ -227,25 +223,19 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         targetSpeedKmh = min(max(speedKmh, limits.minSpeedKmh), limits.maxSpeedKmh)
         targetIncline = min(max(incline, limits.minIncline), limits.maxIncline)
         targetsDirtyWhileNotRunning = false
-        #if targetEnvironment(simulator)
         if demoMode { return demoStart() }
-        #endif
         enqueue(FitShowCommands.start)
         // A QZ-minta szerint indítás után célértéket is küldünk.
         sendCurrentTargets()
     }
 
     func requestStop() {
-        #if targetEnvironment(simulator)
         if demoMode { return demoStop() }
-        #endif
         enqueue(FitShowCommands.stop)
     }
 
     func requestPause() {
-        #if targetEnvironment(simulator)
         if demoMode { return demoPause() }
-        #endif
         enqueue(FitShowCommands.pause)
     }
 
@@ -260,9 +250,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     func setTarget(speedKmh: Double, incline: Int) {
         targetSpeedKmh = min(max(speedKmh, limits.minSpeedKmh), limits.maxSpeedKmh)
         targetIncline = min(max(incline, limits.minIncline), limits.maxIncline)
-        #if targetEnvironment(simulator)
         if demoMode { return } // a demó-tick követi a célértékeket
-        #endif
         guard state.isRunning else {
             // Álló/visszaszámláló szalagon nem küldünk — futásba váltáskor pótoljuk.
             targetsDirtyWhileNotRunning = true

@@ -44,6 +44,11 @@ final class HealthKitExporter: ObservableObject {
             state = .saved
             return
         }
+        // Demó (szimulált) edzés nem szennyezheti a valódi Health-adatokat.
+        guard !session.isDemo else {
+            state = .idle
+            return
+        }
         // Ha a Watch-session rögzítette a pulzust, a Watch menti a saját
         // workoutját a Healthbe — az iPhone-oldali mentés duplikálna.
         guard !session.watchProvidedHeartRate else {
