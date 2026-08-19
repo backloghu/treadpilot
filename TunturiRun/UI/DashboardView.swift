@@ -6,6 +6,7 @@ struct DashboardView: View {
 
     @EnvironmentObject private var client: FitShowTreadmillClient
     @EnvironmentObject private var runner: ProgramRunner
+    @EnvironmentObject private var recorder: SessionRecorder
     @Query(sort: \CustomProgram.createdAt) private var customPrograms: [CustomProgram]
     @State private var showStartConfirmation = false
     @State private var showProgramStartConfirmation = false
@@ -143,7 +144,10 @@ struct DashboardView: View {
                 stat("Táv", String(format: "%.2f km", client.state.distanceKm))
             }
             GridRow {
-                stat("Kalória", "\(client.state.kcal) kcal")
+                // Aktív edzésnél a saját (testadat-alapú) számítást mutatjuk,
+                // egyébként a pad nyers értékét.
+                stat("Kalória", recorder.activeSession.map { "\(Int($0.computedKcal.rounded())) kcal" }
+                                ?? "\(client.state.kcal) kcal")
                 stat("Pulzus", client.state.heartRate > 0 ? "\(client.state.heartRate) bpm" : "–")
             }
         }

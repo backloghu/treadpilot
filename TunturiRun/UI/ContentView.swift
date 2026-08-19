@@ -4,6 +4,7 @@ struct ContentView: View {
     @EnvironmentObject private var client: FitShowTreadmillClient
     @EnvironmentObject private var runner: ProgramRunner
     @EnvironmentObject private var recorder: SessionRecorder
+    @EnvironmentObject private var profileStore: ProfileStore
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
@@ -40,6 +41,9 @@ struct ContentView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             recorder.bind(client: client, runner: runner, context: modelContext)
+            recorder.profileProvider = { [weak profileStore] in
+                profileStore?.effectiveProfile ?? .fallback
+            }
         }
         .sheet(item: $recorder.finishedSession) { session in
             SummaryView(session: session)

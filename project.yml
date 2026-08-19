@@ -18,6 +18,9 @@ targets:
         NSBluetoothAlwaysUsageDescription: >-
           A Bluetooth-hozzáférés a Tunturi futópad csatlakoztatásához,
           az edzésadatok kiolvasásához és a pad vezérléséhez szükséges.
+        NSHealthShareUsageDescription: >-
+          A testadatok (súly, magasság, kor, nem) a pontos kalóriaszámításhoz
+          szükségesek.
         UIBackgroundModes: [bluetooth-central]
         ITSAppUsesNonExemptEncryption: false
         UIAppFonts:
@@ -27,6 +30,10 @@ targets:
           - SpaceGrotesk-SemiBold.ttf
           - SpaceGrotesk-Bold.ttf
         UIUserInterfaceStyle: Dark
+    entitlements:
+      path: TunturiRun/TunturiRun.entitlements
+      properties:
+        com.apple.developer.healthkit: true
     settings:
       base:
         SWIFT_VERSION: "6.0"

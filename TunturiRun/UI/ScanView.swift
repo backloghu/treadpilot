@@ -97,7 +97,12 @@ struct ScanView: View {
                 }
             }
             ToolbarItem(placement: .principal) { BrandWordmark() }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                NavigationLink {
+                    ProfileView()
+                } label: {
+                    Image(systemName: "person.crop.circle")
+                }
                 if client.phase == .scanning {
                     Button { client.stopScan() } label: {
                         Text("ÁLLJ").font(Brand.display(12, .semibold)).tracking(1.5)

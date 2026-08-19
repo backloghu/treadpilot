@@ -15,6 +15,8 @@ final class SessionRecorder: ObservableObject {
     private weak var runner: ProgramRunner?
     private var context: ModelContext?
     private var timer: Timer?
+    /// Az aktuális testadat-profil a kalóriaszámításhoz (a ProfileStore adja).
+    var profileProvider: (@MainActor () -> BodyProfile)?
 
     private var speedSum = 0.0
     private var heartRateSum = 0
@@ -82,6 +84,12 @@ final class SessionRecorder: ObservableObject {
         session.movingSeconds += 1
         session.distanceKm = max(session.distanceKm, state.distanceKm)
         session.padKcal = max(session.padKcal, state.kcal)
+        session.computedKcal += CalorieEngine.kcalForSecond(
+            speedKmh: state.speedKmh,
+            inclinePercent: state.inclinePercent,
+            heartRate: state.heartRate,
+            profile: profileProvider?() ?? .fallback
+        )
         session.maxSpeedKmh = max(session.maxSpeedKmh, state.speedKmh)
         speedSum += state.speedKmh
         session.avgSpeedKmh = speedSum / Double(session.movingSeconds)
