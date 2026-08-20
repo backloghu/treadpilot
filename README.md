@@ -63,9 +63,33 @@ A physical iPhone is required for Bluetooth; the simulator offers Demo Mode.
 For the Watch app, select your team on both targets and enable Developer
 Mode on the watch.
 
-## License
+## Contributing
 
-MIT — see [LICENSE](LICENSE). Bundled Space Grotesk fonts are under the SIL
-Open Font License 1.1 ([OFL.txt](TreadPilot/Resources/Fonts/OFL.txt)).
-Tunturi is a trademark of Tunturi New Fitness B.V.; this is an independent
-project not affiliated with any treadmill manufacturer.
+Contributions are welcome — especially protocol traces from treadmills other
+than the Tunturi Competence T40, an FTMS backend, and translations. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+Commits need a `Signed-off-by` line (`git commit -s`), which is how you accept
+the [Contributor Licence Agreement](CLA.md). You keep the copyright to your
+work; the agreement exists so the App Store build stays legally possible.
+
+## Licence
+
+**GNU General Public License v3.0 or later** — see [LICENSE](LICENSE).
+
+In short: use it, study it, run it on your own treadmill, change it however you
+like. If you **distribute** a modified version, you have to publish your full
+source under the GPL as well. Using it privately carries no obligation at all.
+
+Two things the licence does not cover, both spelled out in [NOTICE.md](NOTICE.md):
+
+- **The TreadPilot name, wordmark and app icon are not licensed.** Fork freely,
+  but give your fork its own name and icon.
+- **The bundled Space Grotesk fonts** stay under the SIL Open Font License 1.1
+  ([OFL.txt](TreadPilot/Resources/Fonts/OFL.txt)).
+
+Tunturi is a trademark of Tunturi New Fitness B.V.; FitShow and Apple product
+names belong to their respective owners. This is an independent project, not
+affiliated with or endorsed by any of them.
+
+Built by [Backlog Kft.](https://backlog.hu) in Budapest.
