@@ -5,3 +5,8 @@ xcuserdata/
 .DS_Store
 .vercel
 .env*.local
+
+# App Store és marketing anyagok — nem a kódtárba tartoznak.
+# A repóban csak app- és landing-specifikus dolog van.
+Marketing Photos/
+docs/
