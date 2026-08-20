@@ -10,7 +10,7 @@ struct ProgramListView: View {
         List {
             Section {
                 if customPrograms.isEmpty {
-                    Text("Még nincs saját programod — hozz létre újat, vagy duplikálj egy beépítettet.")
+                    Text("No custom programs yet — create a new one, or duplicate a built-in.")
                         .font(.footnote)
                         .foregroundStyle(Brand.fgDim)
                         .listRowBackground(Brand.bgElev1)
@@ -29,7 +29,7 @@ struct ProgramListView: View {
                         Button {
                             duplicate(program.asWorkoutProgram)
                         } label: {
-                            Label("Duplikálás", systemImage: "plus.square.on.square")
+                            Label("Duplicate", systemImage: "plus.square.on.square")
                         }
                     }
                 }
@@ -42,7 +42,7 @@ struct ProgramListView: View {
                     createNew()
                 } label: {
                     Label {
-                        Text("ÚJ PROGRAM").tracking(1.5).font(Brand.display(13, .semibold))
+                        Text("NEW PROGRAM").tracking(1.5).font(Brand.display(13, .semibold))
                     } icon: {
                         Image(systemName: "plus")
                     }
@@ -50,7 +50,7 @@ struct ProgramListView: View {
                 }
                 .listRowBackground(Brand.bgElev1)
             } header: {
-                BrandEyebrow("Saját programok")
+                BrandEyebrow(String(localized: "Custom programs"))
             }
 
             Section {
@@ -72,7 +72,7 @@ struct ProgramListView: View {
                     .listRowSeparatorTint(Brand.gridLine)
                 }
             } header: {
-                BrandEyebrow("Beépített programok (csak duplikálható)")
+                BrandEyebrow(String(localized: "Built-in programs — duplicate to edit"))
             }
         }
         .listStyle(.plain)
@@ -80,7 +80,7 @@ struct ProgramListView: View {
         .background(Brand.bgDeep)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("PROGRAMOK")
+                Text("PROGRAMS")
                     .font(Brand.display(12, .semibold))
                     .tracking(1.5)
                     .foregroundStyle(Brand.fgMid)
@@ -95,7 +95,7 @@ struct ProgramListView: View {
             Text(name)
                 .font(Brand.display(14, .semibold))
                 .foregroundStyle(.white)
-            Text("\(SessionFormat.duration(seconds)) · \(count) szegmens")
+            Text(SessionFormat.duration(seconds) + " · " + String(localized: "\(count) segments"))
                 .font(.caption)
                 .foregroundStyle(Brand.grey)
         }
@@ -103,8 +103,8 @@ struct ProgramListView: View {
     }
 
     private func createNew() {
-        let program = CustomProgram(name: "Új program")
-        let segment = CustomSegmentRecord(orderIndex: 0, name: "Szegmens 1",
+        let program = CustomProgram(name: String(localized: "New program"))
+        let segment = CustomSegmentRecord(orderIndex: 0, name: String(localized: "Segment 1"),
                                           durationSeconds: 300,
                                           targetSpeedKmh: 5.0, targetIncline: 0)
         segment.program = program
@@ -114,7 +114,7 @@ struct ProgramListView: View {
     }
 
     private func duplicate(_ program: WorkoutProgram) {
-        let copy = CustomProgram.copy(of: program, name: program.name + " (másolat)")
+        let copy = CustomProgram.copy(of: program, name: program.name + String(localized: " (copy)"))
         context.insert(copy)
         try? context.save()
     }

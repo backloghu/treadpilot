@@ -8,38 +8,36 @@ struct ProfileView: View {
         List {
             Section {
                 Stepper(value: weightBinding, in: 30...200, step: 0.5) {
-                    labeled("Testsúly", String(format: "%.1f kg", profile.effectiveProfile.weightKg),
+                    labeled(String(localized: "Weight"), String(format: "%.1f kg", profile.effectiveProfile.weightKg),
                             overridden: profile.overrideWeightKg != nil,
                             healthValue: profile.healthWeightKg.map { String(format: "%.1f kg", $0) })
                 }
                 .listRowBackground(Brand.bgElev1)
                 Stepper(value: heightBinding, in: 120...220, step: 1) {
-                    labeled("Magasság", String(format: "%.0f cm", profile.effectiveProfile.heightCm),
+                    labeled(String(localized: "Height"), String(format: "%.0f cm", profile.effectiveProfile.heightCm),
                             overridden: profile.overrideHeightCm != nil,
                             healthValue: profile.healthHeightCm.map { String(format: "%.0f cm", $0) })
                 }
                 .listRowBackground(Brand.bgElev1)
                 Stepper(value: ageBinding, in: 10...100) {
-                    labeled("Életkor", "\(profile.effectiveProfile.age) év",
+                    labeled(String(localized: "Age"), String(localized: "\(profile.effectiveProfile.age) years"),
                             overridden: profile.overrideAge != nil,
-                            healthValue: profile.healthAge.map { "\($0) év" })
+                            healthValue: profile.healthAge.map { String(localized: "\($0) years") })
                 }
                 .listRowBackground(Brand.bgElev1)
                 Picker(selection: sexBinding) {
-                    Text("Férfi").tag(true)
-                    Text("Nő").tag(false)
+                    Text("Male").tag(true)
+                    Text("Female").tag(false)
                 } label: {
-                    labeled("Biológiai nem", "",
+                    labeled(String(localized: "Sex"), "",
                             overridden: profile.overrideIsMale != nil,
-                            healthValue: profile.healthIsMale.map { $0 ? "férfi" : "nő" })
+                            healthValue: profile.healthIsMale.map { $0 ? String(localized: "Male") : String(localized: "Female") })
                 }
                 .listRowBackground(Brand.bgElev1)
             } header: {
-                BrandEyebrow("Testadatok")
+                BrandEyebrow(String(localized: "Body data"))
             } footer: {
-                Text("Az értékek módosítása felülírja a HealthKitből olvasottakat. "
-                     + "A kalóriaszámítás pulzus birtokában pulzusalapú, anélkül "
-                     + "sebesség- és dőlésalapú (MET) becslés.")
+                Text("Changing these values overrides the data read from Health. When heart rate data is available, calories are calculated from heart rate; otherwise the app uses a speed- and incline-based (MET) estimate.")
                     .font(.footnote)
                     .foregroundStyle(Brand.grey)
             }
@@ -49,7 +47,7 @@ struct ProfileView: View {
                     Task { await profile.refreshFromHealthKit() }
                 } label: {
                     Label {
-                        Text("FRISSÍTÉS HEALTHKITBŐL").tracking(1.2).font(Brand.display(12, .semibold))
+                        Text("REFRESH FROM HEALTH").tracking(1.2).font(Brand.display(12, .semibold))
                     } icon: {
                         Image(systemName: "heart.text.square")
                     }
@@ -60,7 +58,7 @@ struct ProfileView: View {
                     profile.clearOverrides()
                 } label: {
                     Label {
-                        Text("FELÜLÍRÁSOK TÖRLÉSE").tracking(1.2).font(Brand.display(12, .semibold))
+                        Text("CLEAR OVERRIDES").tracking(1.2).font(Brand.display(12, .semibold))
                     } icon: {
                         Image(systemName: "arrow.uturn.backward")
                     }
@@ -80,7 +78,7 @@ struct ProfileView: View {
         .background(Brand.bgDeep)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("PROFIL")
+                Text("PROFILE")
                     .font(Brand.display(12, .semibold))
                     .tracking(1.5)
                     .foregroundStyle(Brand.fgMid)
@@ -103,15 +101,15 @@ struct ProfileView: View {
                 }
             }
             if overridden {
-                Text(healthValue.map { "felülírva — HealthKit: \($0)" } ?? "kézi érték")
+                Text(healthValue.map { String(localized: "overridden — Health: \($0)") } ?? String(localized: "manual value"))
                     .font(.caption2)
                     .foregroundStyle(Brand.accent)
             } else if let healthValue {
-                Text("HealthKitből: \(healthValue)")
+                Text("From Health: \(healthValue)")
                     .font(.caption2)
                     .foregroundStyle(Brand.grey)
             } else {
-                Text("alapértelmezés — nincs HealthKit-adat")
+                Text("default — no Health data")
                     .font(.caption2)
                     .foregroundStyle(Brand.grey)
             }

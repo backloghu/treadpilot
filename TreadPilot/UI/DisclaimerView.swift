@@ -11,29 +11,24 @@ struct DisclaimerView: View {
                 BrandWordmark()
                     .padding(.top, 24)
 
-                BrandEyebrow("Biztonsági tudnivalók")
-                Text("Ez az app valódi futópadot vezérel")
+                BrandEyebrow(String(localized: "Safety information"))
+                Text("This app controls a real treadmill")
                     .font(Brand.display(24, .bold))
                     .foregroundStyle(.white)
 
                 VStack(alignment: .leading, spacing: 12) {
-                    bullet("A parancsokra a szalag ténylegesen elindul, gyorsul és emelkedik — "
-                           + "minden indítás és sebességváltás előtt állj stabilan.")
-                    bullet("Használat előtt mindig csíptesd fel a futópad biztonsági kulcsát.")
-                    bullet("Kapcsolatvesztéskor a szalag az utolsó beállított sebességgel "
-                           + "mehet tovább — vészhelyzetben a pad saját Stop gombja és a "
-                           + "biztonsági kulcs az elsődleges védelem.")
-                    bullet("Ne engedd, hogy gyermek felügyelet nélkül használja az appot "
-                           + "vagy a futópadot.")
-                    bullet("Az alkalmazást saját felelősségedre használod. Egészségügyi "
-                           + "panasz esetén edzés előtt konzultálj orvossal.")
+                    bullet(String(localized: "On your commands the belt really starts, speeds up and inclines — stand firmly before every start and speed change."))
+                    bullet(String(localized: "Always clip on the treadmill's safety key before use."))
+                    bullet(String(localized: "If the connection drops, the belt may keep running at the last set speed — in an emergency the treadmill's own Stop button and the safety key are your primary protection."))
+                    bullet(String(localized: "Never let a child use the app or the treadmill unsupervised."))
+                    bullet(String(localized: "You use this app at your own risk. If you have any health concerns, consult a doctor before working out."))
                 }
                 .brandBox()
 
                 Button {
                     onAccept()
                 } label: {
-                    Text("MEGÉRTETTEM ÉS ELFOGADOM").tracking(1.5)
+                    Text("I UNDERSTAND AND ACCEPT").tracking(1.5)
                 }
                 .buttonStyle(BrandCTAStyle())
             }

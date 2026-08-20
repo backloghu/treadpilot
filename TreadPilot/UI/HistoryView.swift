@@ -17,7 +17,7 @@ struct HistoryView: View {
                     Image(systemName: "figure.run")
                         .font(.system(size: 40))
                         .foregroundStyle(Brand.grey)
-                    Text("Még nincs rögzített edzés.")
+                    Text("No workouts recorded yet.")
                         .font(.subheadline)
                         .foregroundStyle(Brand.fgDim)
                 }
@@ -46,7 +46,7 @@ struct HistoryView: View {
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("ELŐZMÉNYEK")
+                Text("HISTORY")
                     .font(Brand.display(12, .semibold))
                     .tracking(1.5)
                     .foregroundStyle(Brand.fgMid)
@@ -120,10 +120,10 @@ struct SessionDetailView: View {
                 let samples = downsampled(session.sortedSamples, to: 600)
                 if samples.count > 1 {
                     VStack(alignment: .leading, spacing: 10) {
-                        BrandEyebrow("Sebesség (km/h)")
+                        BrandEyebrow(String(localized: "Speed (km/h)"))
                         Chart(samples, id: \.offsetSeconds) { sample in
                             LineMark(
-                                x: .value("mp", sample.offsetSeconds),
+                                x: .value("s", sample.offsetSeconds),
                                 y: .value("km/h", sample.speedKmh)
                             )
                             .foregroundStyle(Brand.accent)
@@ -137,10 +137,10 @@ struct SessionDetailView: View {
 
                     if samples.contains(where: { $0.heartRate > 0 }) {
                         VStack(alignment: .leading, spacing: 10) {
-                            BrandEyebrow("Pulzus (bpm)")
+                            BrandEyebrow(String(localized: "Heart rate (bpm)"))
                             Chart(samples.filter { $0.heartRate > 0 }, id: \.offsetSeconds) { sample in
                                 LineMark(
-                                    x: .value("mp", sample.offsetSeconds),
+                                    x: .value("s", sample.offsetSeconds),
                                     y: .value("bpm", sample.heartRate)
                                 )
                                 .foregroundStyle(Brand.danger)
@@ -183,25 +183,25 @@ struct SessionStatsGrid: View {
     var body: some View {
         Grid(horizontalSpacing: 10, verticalSpacing: 10) {
             GridRow {
-                cell("Mozgásidő", SessionFormat.duration(session.movingSeconds))
-                cell("Táv", String(format: "%.2f km", session.distanceKm))
+                cell(String(localized: "Moving time"), SessionFormat.duration(session.movingSeconds))
+                cell(String(localized: "Distance"), String(format: "%.2f km", session.distanceKm))
             }
             GridRow {
-                cell("Átlagsebesség", String(format: "%.1f km/h", session.avgSpeedKmh))
-                cell("Max sebesség", String(format: "%.1f km/h", session.maxSpeedKmh))
+                cell(String(localized: "Avg speed"), String(format: "%.1f km/h", session.avgSpeedKmh))
+                cell(String(localized: "Max speed"), String(format: "%.1f km/h", session.maxSpeedKmh))
             }
             GridRow {
-                cell("Kalória", "\(session.displayKcal) kcal")
-                cell("Átlagpulzus", session.avgHeartRate > 0 ? "\(session.avgHeartRate) bpm" : "–")
+                cell(String(localized: "Calories"), "\(session.displayKcal) kcal")
+                cell(String(localized: "Avg heart rate"), session.avgHeartRate > 0 ? "\(session.avgHeartRate) bpm" : "–")
             }
             GridRow {
-                cell("Szint fel", String(format: "%.0f m", session.elevationGainM))
-                cell("Max pulzus", session.maxHeartRate > 0 ? "\(session.maxHeartRate) bpm" : "–")
+                cell(String(localized: "Elevation gain"), String(format: "%.0f m", session.elevationGainM))
+                cell(String(localized: "Max heart rate"), session.maxHeartRate > 0 ? "\(session.maxHeartRate) bpm" : "–")
             }
             if session.pausedSeconds > 0 {
                 GridRow {
-                    cell("Szünet", SessionFormat.duration(session.pausedSeconds))
-                    cell("Program", session.programName ?? "kézi")
+                    cell(String(localized: "Paused"), SessionFormat.duration(session.pausedSeconds))
+                    cell(String(localized: "Program"), session.programName ?? String(localized: "Manual"))
                 }
             }
         }

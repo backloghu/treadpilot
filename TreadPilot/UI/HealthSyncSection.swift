@@ -21,14 +21,14 @@ struct HealthSyncSection: View {
             if session.isDemo {
                 HStack(spacing: 6) {
                     Image(systemName: "play.rectangle")
-                    Text("DEMÓ EDZÉS — NEM KERÜL A HEALTHBE").tracking(1)
+                    Text("DEMO WORKOUT — NOT SAVED TO HEALTH").tracking(1)
                 }
                 .font(Brand.display(11, .semibold))
                 .foregroundStyle(Brand.grey)
             } else if session.healthKitSynced {
                 HStack(spacing: 6) {
                     Image(systemName: "heart.fill")
-                    Text("MENTVE A HEALTHBE").tracking(1.2)
+                    Text("SAVED TO HEALTH").tracking(1.2)
                 }
                 .font(Brand.display(12, .semibold))
                 .foregroundStyle(Brand.accent)
@@ -37,7 +37,7 @@ struct HealthSyncSection: View {
                 case .saving:
                     HStack(spacing: 10) {
                         ProgressView().tint(Brand.accent)
-                        Text("MENTÉS…").tracking(1.2)
+                        Text("SAVING…").tracking(1.2)
                             .font(Brand.display(12, .semibold))
                             .foregroundStyle(Brand.fgMid)
                     }
@@ -53,7 +53,7 @@ struct HealthSyncSection: View {
 
             if showsAutoSaveToggle {
                 Toggle(isOn: $exporter.autoSave) {
-                    Text("Automatikus mentés minden edzés után")
+                    Text("Automatically save after every workout")
                         .font(.subheadline)
                         .foregroundStyle(Brand.fgDim)
                 }
@@ -80,7 +80,7 @@ struct HealthSyncSection: View {
                 try? modelContext.save()
             }
         } label: {
-            HStack { Image(systemName: "heart"); Text("MENTÉS A HEALTHBE").tracking(1.5) }
+            HStack { Image(systemName: "heart"); Text("SAVE TO HEALTH").tracking(1.5) }
         }
         .buttonStyle(BrandStrokeStyle(color: Brand.accent))
     }

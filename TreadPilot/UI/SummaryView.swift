@@ -12,7 +12,7 @@ struct SummaryView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
-                        Text("EDZÉS KÉSZ").tracking(1.5)
+                        Text("WORKOUT COMPLETE").tracking(1.5)
                     }
                     .font(Brand.display(14, .semibold))
                     .foregroundStyle(Brand.accent)
@@ -24,7 +24,7 @@ struct SummaryView: View {
                     Button {
                         dismiss()
                     } label: {
-                        Text("BEZÁRÁS").tracking(1.5)
+                        Text("CLOSE").tracking(1.5)
                     }
                     .buttonStyle(BrandStrokeStyle())
                 }

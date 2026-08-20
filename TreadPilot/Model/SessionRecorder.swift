@@ -84,7 +84,7 @@ final class SessionRecorder: ObservableObject {
 
     private func begin() {
         guard let context, let client else { return }
-        let name: String = if case .ready(let deviceName) = client.phase { deviceName } else { "Futópad" }
+        let name: String = if case .ready(let deviceName) = client.phase { deviceName } else { String(localized: "Treadmill") }
         let session = WorkoutSessionRecord(
             startedAt: Date(),
             deviceName: name,

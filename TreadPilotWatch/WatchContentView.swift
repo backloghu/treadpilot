@@ -27,7 +27,7 @@ struct WatchContentView: View {
                     workout.start()
                 }
             } label: {
-                Text(workout.isActive ? "Befejezés" : "Indítás")
+                Text(workout.isActive ? "End" : "Start")
             }
             .tint(workout.isActive ? .red : .yellow)
         }

@@ -21,9 +21,9 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>A pulzus élő méréséhez és az iPhone-appba tükrözéséhez szükséges.</string>
+	<string>Required to measure your heart rate live and mirror it to the iPhone app.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Az edzés Watch-oldali rögzítéséhez szükséges.</string>
+	<string>Required to record the workout session on your Watch.</string>
 	<key>WKApplication</key>
 	<true/>
 	<key>WKBackgroundModes</key>

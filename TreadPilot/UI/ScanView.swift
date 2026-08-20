@@ -9,7 +9,7 @@ struct ScanView: View {
                 if client.phase == .bluetoothOff {
                     HStack(spacing: 10) {
                         Image(systemName: "exclamationmark.triangle")
-                        Text("Kapcsold be a Bluetooth-t a folytatáshoz.")
+                        Text("Turn on Bluetooth to continue.")
                     }
                     .font(Brand.display(13, .medium))
                     .foregroundStyle(Brand.accent)
@@ -32,23 +32,22 @@ struct ScanView: View {
                     } label: {
                         HStack {
                             Image(systemName: "play.rectangle")
-                            Text("DEMÓ MÓD").tracking(1.5)
+                            Text("DEMO MODE").tracking(1.5)
                         }
                     }
                     .buttonStyle(BrandCTAStyle())
-                    Text("Nincs a közeledben futópad? A demó móddal szimulált padon "
-                         + "próbálhatod ki az app teljes felületét.")
+                    Text("No treadmill nearby? Demo mode lets you explore the whole app on a simulated treadmill.")
                         .font(.footnote)
                         .foregroundStyle(Brand.grey)
                 }
 
-                BrandEyebrow("Talált futópadok")
+                BrandEyebrow(String(localized: "Discovered treadmills"))
                     .padding(.top, 8)
 
                 if client.discovered.isEmpty {
                     Text(client.phase == .scanning
-                         ? "Keresés… Kapcsold be a futópadot."
-                         : "Indíts keresést a padod megtalálásához.")
+                         ? String(localized: "Scanning… Turn on the treadmill.")
+                         : String(localized: "Start a scan to find your treadmill."))
                         .font(.subheadline)
                         .foregroundStyle(Brand.fgDim)
                         .brandBox()
@@ -104,11 +103,11 @@ struct ScanView: View {
                 }
                 if client.phase == .scanning {
                     Button { client.stopScan() } label: {
-                        Text("ÁLLJ").font(Brand.display(12, .semibold)).tracking(1.5)
+                        Text("STOP").font(Brand.display(12, .semibold)).tracking(1.5)
                     }
                 } else {
                     Button { client.startScan() } label: {
-                        Text("KERESÉS").font(Brand.display(12, .semibold)).tracking(1.5)
+                        Text("SCAN").font(Brand.display(12, .semibold)).tracking(1.5)
                     }
                 }
             }
@@ -120,11 +119,11 @@ struct ScanView: View {
 
     private func hint(for name: String) -> String {
         if name.uppercased().hasPrefix("SW") {
-            return "FitShow-konzol (2019-es generáció)"
+            return String(localized: "FitShow console (2019 models)")
         }
         if name.uppercased().hasPrefix("TUNTURI T") {
-            return "Újabb Tunturi-konzol"
+            return String(localized: "Newer Tunturi console")
         }
-        return "Ismeretlen konzoltípus"
+        return String(localized: "Unknown console type")
     }
 }

@@ -34,7 +34,7 @@ struct HomeView: View {
                     runner.stop()
                     client.disconnect()
                 } label: {
-                    Text("BONTÁS").tracking(1.5)
+                    Text("DISCONNECT").tracking(1.5)
                 }
                 .buttonStyle(BrandStrokeStyle(color: Brand.fgDim))
             }
@@ -50,29 +50,28 @@ struct HomeView: View {
             // A lefutott program maradványa ne éljen tovább a kezdőképernyőn.
             if case .finished = runner.runnerState { runner.stop() }
         }
-        .confirmationDialog("Elindítod a szalagot?",
+        .confirmationDialog("Start the belt?",
                             isPresented: $showManualStartConfirmation,
                             titleVisibility: .visible) {
-            Button("Indítás \(client.targetSpeedKmh, specifier: "%.1f") km/h sebességgel") {
+            Button("Start at \(client.targetSpeedKmh, specifier: "%.1f") km/h") {
                 client.userConfirmedStart()
             }
-            Button("Mégse", role: .cancel) {}
+            Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Állj a szalag két szélére, és csíptesd fel a biztonsági kulcsot.")
+            Text(Safety.standClear)
         }
-        .confirmationDialog("Programot indítasz?",
+        .confirmationDialog("Start a program?",
                             isPresented: $showProgramStartConfirmation,
                             titleVisibility: .visible) {
-            Button("\(selectedProgram.name) indítása") {
+            Button("Start \(selectedProgram.name)") {
                 runner.arm(selectedProgram, on: client)
             }
-            Button("Mégse", role: .cancel) {}
+            Button("Cancel", role: .cancel) {}
         } message: {
             if let first = selectedProgram.segments.first {
-                Text("A(z) \(ProgramRunner.armCountdownSeconds) mp-es visszaszámlálás után "
-                     + "a szalag magától elindul, első szegmens: "
-                     + String(format: "%.1f km/h, %d%% dőlés.", first.targetSpeedKmh, first.targetIncline)
-                     + " Állj a szalag két szélére, biztonsági kulcs fel!")
+                // Egyetlen mondat egyetlen kulcsból: a fordítónak így van
+                // kontextusa, és a szórend nyelvenként szabadon átrendezhető.
+                Text("The belt starts on its own after a \(ProgramRunner.armCountdownSeconds)-second countdown. First segment: \(first.targetSpeedKmh, specifier: "%.1f") km/h at \(first.targetIncline)% incline. \(Safety.standClear)")
             }
         }
     }
@@ -80,14 +79,14 @@ struct HomeView: View {
     private var deviceBox: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                BrandEyebrow("Csatlakoztatva")
+                BrandEyebrow(String(localized: "Connected"))
                 Text(deviceName)
                     .font(Brand.display(16, .semibold))
                     .foregroundStyle(.white)
             }
             Spacer()
             if !client.limits.fromDevice {
-                Text("ALAPÉRTELMEZETT LIMITEK")
+                Text("DEFAULT LIMITS")
                     .font(Brand.display(9, .medium))
                     .tracking(1.2)
                     .foregroundStyle(Brand.grey)
@@ -98,14 +97,14 @@ struct HomeView: View {
 
     private var manualStartBox: some View {
         VStack(alignment: .leading, spacing: 12) {
-            BrandEyebrow("Manuális edzés")
-            Text("Te állítod a sebességet és a dőlést edzés közben.")
+            BrandEyebrow(String(localized: "Manual workout"))
+            Text("You set the speed and the incline during the workout.")
                 .font(.footnote)
                 .foregroundStyle(Brand.fgDim)
             Button {
                 showManualStartConfirmation = true
             } label: {
-                HStack { Image(systemName: "play.fill"); Text("MANUÁLIS INDÍTÁS").tracking(1.5) }
+                HStack { Image(systemName: "play.fill"); Text("MANUAL START").tracking(1.5) }
             }
             .buttonStyle(BrandCTAStyle())
         }
@@ -114,7 +113,7 @@ struct HomeView: View {
 
     private var programBox: some View {
         VStack(alignment: .leading, spacing: 12) {
-            BrandEyebrow("Edzésprogram")
+            BrandEyebrow(String(localized: "Program"))
             Menu {
                 ForEach(programOptions) { program in
                     Button(program.name) { selectedProgramId = program.id }
@@ -137,16 +136,18 @@ struct HomeView: View {
                 .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
             }
             Text(SessionFormat.duration(Int(selectedProgram.totalDuration))
-                 + " · \(selectedProgram.segments.count) szegmens"
+                 // A szakaszszám külön kulcs, a String Catalogban plural
+                 // variációval — így nem lesz "1 segments".
+                 + " · " + String(localized: "\(selectedProgram.segments.count) segments")
                  + String(format: " · %.2f km", selectedProgram.totalDistanceKm)
-                 + String(format: " · %.0f m szint", selectedProgram.totalElevationGainM)
+                 + String(format: String(localized: " · %.0f m elevation gain"), selectedProgram.totalElevationGainM)
                  + String(format: " · ⌀ %.1f km/h", selectedProgram.averageSpeedKmh))
                 .font(.caption)
                 .foregroundStyle(Brand.grey)
             Button {
                 showProgramStartConfirmation = true
             } label: {
-                HStack { Image(systemName: "list.bullet"); Text("PROGRAM INDÍTÁSA").tracking(1.5) }
+                HStack { Image(systemName: "list.bullet"); Text("START PROGRAM").tracking(1.5) }
             }
             .buttonStyle(BrandStrokeStyle(color: Brand.accent))
         }
@@ -155,9 +156,9 @@ struct HomeView: View {
 
     private var navigationRow: some View {
         HStack(spacing: 10) {
-            navBox("Előzmények", icon: "clock.arrow.circlepath") { HistoryView() }
-            navBox("Programok", icon: "list.bullet.rectangle") { ProgramListView() }
-            navBox("Profil", icon: "person.crop.circle") { ProfileView() }
+            navBox(String(localized: "History"), icon: "clock.arrow.circlepath") { HistoryView() }
+            navBox(String(localized: "Programs"), icon: "list.bullet.rectangle") { ProgramListView() }
+            navBox(String(localized: "Profile"), icon: "person.crop.circle") { ProfileView() }
         }
     }
 
