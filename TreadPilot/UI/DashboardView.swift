@@ -210,7 +210,11 @@ struct DashboardView: View {
     private var controls: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                if client.state.isRunning {
+                // A TÉNYLEGES sebesség dönt, nem a jelentett státusz: egyes
+                // konzolok szünet közben is „running" státuszt jelentenek 0
+                // sebességgel — a FOLYTATÁS-nak ilyenkor is elérhetőnek kell
+                // lennie (#181).
+                if client.state.isRunning && client.state.speedKmh > 0 {
                     Button {
                         client.requestStop()
                     } label: {
@@ -224,8 +228,6 @@ struct DashboardView: View {
                     }
                     .buttonStyle(BrandStrokeStyle())
                 } else {
-                    // Szünet/leállás közben innen folytatható az edzés;
-                    // álló szalagnál a nézet magától visszavált a kezdőképernyőre.
                     Button {
                         showResumeConfirmation = true
                     } label: {
@@ -233,6 +235,12 @@ struct DashboardView: View {
                     }
                     .buttonStyle(BrandCTAStyle())
                     .disabled(client.state.status == .countdown)
+                    Button {
+                        client.requestStop()
+                    } label: {
+                        HStack { Image(systemName: "stop.fill"); Text("STOP").tracking(1.5) }
+                    }
+                    .buttonStyle(BrandStrokeStyle(color: Brand.danger))
                 }
             }
 
