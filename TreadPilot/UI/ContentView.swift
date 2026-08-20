@@ -81,8 +81,7 @@ struct ContentView: View {
         }
         .onReceive(recorder.$finishedSession) { session in
             guard let session else { return }
-            guard exporter.autoSave, !session.healthKitSynced,
-                  !session.watchProvidedHeartRate, !session.isDemo else { return }
+            guard exporter.autoSave, !session.healthKitSynced, !session.isDemo else { return }
             Task {
                 await exporter.export(session)
                 try? modelContext.save()

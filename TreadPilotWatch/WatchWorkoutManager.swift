@@ -77,7 +77,10 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
         guard let builder else { return }
         Task { @MainActor in
             try? await builder.endCollection(at: Date())
-            _ = try? await builder.finishWorkout()
+            // A Watch itt csak pulzusszenzor: a workoutot MINDIG az iPhone
+            // menti a Healthbe (gazdagabb adattal, megbízhatóan) — a Watch a
+            // saját példányát eldobja, így duplikáció sem lehet (#182).
+            builder.discardWorkout()
             self.session = nil
             self.builder = nil
             self.isActive = false

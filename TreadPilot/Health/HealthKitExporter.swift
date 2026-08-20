@@ -49,12 +49,9 @@ final class HealthKitExporter: ObservableObject {
             state = .idle
             return
         }
-        // Ha a Watch-session rögzítette a pulzust, a Watch menti a saját
-        // workoutját a Healthbe — az iPhone-oldali mentés duplikálna.
-        guard !session.watchProvidedHeartRate else {
-            state = .idle
-            return
-        }
+        // Watch-használatnál is az iPhone ment: a Watch a saját workout-
+        // példányát eldobja (WatchWorkoutManager.finishBuilder), így itt
+        // nincs duplikáció-veszély (#182).
         // Egyidejű mentés (automatikus + kézi gomb) ellen: egyszerre csak egy.
         guard !isExporting else { return }
         isExporting = true
