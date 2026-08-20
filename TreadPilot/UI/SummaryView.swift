@@ -66,13 +66,6 @@ struct SummaryView: View {
                 }
                 .font(Brand.display(12, .semibold))
                 .foregroundStyle(Brand.accent)
-            } else if session.watchProvidedHeartRate {
-                HStack(spacing: 6) {
-                    Image(systemName: "applewatch")
-                    Text("A WATCH MENTI A HEALTHBE").tracking(1.2)
-                }
-                .font(Brand.display(12, .semibold))
-                .foregroundStyle(Brand.accent)
             } else {
                 switch exporter.state {
                 case .saving:
