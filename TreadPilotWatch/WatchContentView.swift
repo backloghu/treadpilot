@@ -34,6 +34,13 @@ struct WatchContentView: View {
             }
             .tint(workout.isActive ? .red : .yellow)
         }
-        .task { await workout.requestAuthorization() }
+        .task {
+            #if DEBUG
+            // Bemutató módban nincs valódi szenzor, így engedélyt sem kérünk
+            // — különben a rendszerdialógus takarná a képernyőképet.
+            if workout.startSampleState() { return }
+            #endif
+            await workout.requestAuthorization()
+        }
     }
 }

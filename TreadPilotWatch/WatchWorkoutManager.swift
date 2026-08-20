@@ -68,6 +68,28 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
         session?.end()
     }
 
+    #if DEBUG
+    /// Bemutató állapot képernyőképekhez (`-seedSampleData` indítási
+    /// kapcsolóval): élő pulzust mutat valódi HealthKit-session nélkül,
+    /// mert a szimulátorban nincs szenzor. Éles buildbe nem fordul bele.
+    @discardableResult
+    func startSampleState() -> Bool {
+        guard CommandLine.arguments.contains("-seedSampleData"), session == nil else { return false }
+        isActive = true
+        heartRate = 148
+        var rising = true
+        Timer.scheduledTimer(withTimeInterval: 1.4, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.session == nil else { return }
+                if self.heartRate >= 164 { rising = false }
+                if self.heartRate <= 139 { rising = true }
+                self.heartRate += rising ? Int.random(in: 2...5) : -Int.random(in: 2...5)
+            }
+        }
+        return true
+    }
+    #endif
+
     private func updateHeartRate(_ bpm: Int) {
         heartRate = bpm
         guard let session else { return }
