@@ -5,6 +5,12 @@ options:
     iOS: "17.0"
   createIntermediateGroups: true
 
+# Projektszintű beállítás — minden target örökli, így se Xcode-ban, se
+# CLI-buildnél nem kell külön megadni a fejlesztői csapatot.
+settings:
+  base:
+    DEVELOPMENT_TEAM: 2Y4K7LQZ3R
+
 targets:
   TreadPilot:
     type: application
