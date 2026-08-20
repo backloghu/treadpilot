@@ -5,8 +5,6 @@ import SwiftUI
 struct SummaryView: View {
     let session: WorkoutSessionRecord
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var exporter: HealthKitExporter
 
     var body: some View {
         NavigationStack {
@@ -21,7 +19,7 @@ struct SummaryView: View {
 
                     SessionStatsGrid(session: session)
 
-                    healthSection
+                    HealthSyncSection(session: session)
 
                     Button {
                         dismiss()
@@ -40,70 +38,5 @@ struct SummaryView: View {
             .toolbarBackground(.visible, for: .navigationBar)
         }
         .preferredColorScheme(.dark)
-        .onAppear {
-            // Előző edzésből maradt állapot törlése (folyamatban lévőt nem bánt).
-            if !session.healthKitSynced { exporter.resetState() }
-        }
-    }
-
-    private var healthSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            BrandEyebrow("Apple Health")
-
-            // A session saját jelzői az elsődlegesek — az exporter állapota
-            // csak a folyamatban lévő/sikertelen mentést árnyalja.
-            if session.isDemo {
-                HStack(spacing: 6) {
-                    Image(systemName: "play.rectangle")
-                    Text("DEMÓ EDZÉS — NEM KERÜL A HEALTHBE").tracking(1)
-                }
-                .font(Brand.display(11, .semibold))
-                .foregroundStyle(Brand.grey)
-            } else if session.healthKitSynced {
-                HStack(spacing: 6) {
-                    Image(systemName: "heart.fill")
-                    Text("MENTVE A HEALTHBE").tracking(1.2)
-                }
-                .font(Brand.display(12, .semibold))
-                .foregroundStyle(Brand.accent)
-            } else {
-                switch exporter.state {
-                case .saving:
-                    HStack(spacing: 10) {
-                        ProgressView().tint(Brand.accent)
-                        Text("MENTÉS…").tracking(1.2)
-                            .font(Brand.display(12, .semibold))
-                            .foregroundStyle(Brand.fgMid)
-                    }
-                case .failed(let message):
-                    Text(message)
-                        .font(.footnote)
-                        .foregroundStyle(Brand.danger)
-                    saveButton
-                case .idle, .saved:
-                    saveButton
-                }
-            }
-
-            Toggle(isOn: $exporter.autoSave) {
-                Text("Automatikus mentés minden edzés után")
-                    .font(.subheadline)
-                    .foregroundStyle(Brand.fgDim)
-            }
-            .tint(Brand.accent)
-        }
-        .brandBox()
-    }
-
-    private var saveButton: some View {
-        Button {
-            Task {
-                await exporter.export(session)
-                try? modelContext.save()
-            }
-        } label: {
-            HStack { Image(systemName: "heart"); Text("MENTÉS A HEALTHBE").tracking(1.5) }
-        }
-        .buttonStyle(BrandStrokeStyle(color: Brand.accent))
     }
 }

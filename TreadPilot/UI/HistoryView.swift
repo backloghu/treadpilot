@@ -71,6 +71,11 @@ private struct SessionRow: View {
                     Image(systemName: "heart.fill")
                         .font(.caption2)
                         .foregroundStyle(Brand.accent)
+                } else if !session.isDemo {
+                    // Még nincs a Healthben — a részletnézetből pótolható.
+                    Image(systemName: "heart")
+                        .font(.caption2)
+                        .foregroundStyle(Brand.grey)
                 }
                 if let program = session.programName {
                     Text(program)
@@ -105,6 +110,10 @@ struct SessionDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 SessionStatsGrid(session: session)
+
+                // Utólagos Health-szinkron: ha az edzés végi mentés nem
+                // sikerült (vagy ki volt kapcsolva), innen bármikor pótolható.
+                HealthSyncSection(session: session, showsAutoSaveToggle: false)
 
                 // Hosszú edzésnél ritkított mintasor, hogy a grafikon ne
                 // épüljön több ezer pontból.

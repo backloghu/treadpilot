@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import SwiftData
 
 /// Kész edzés mentése az Apple Healthbe HKWorkoutBuilderrel.
 @MainActor
@@ -13,6 +14,9 @@ final class HealthKitExporter: ObservableObject {
     }
 
     @Published private(set) var state: ExportState = .idle
+    /// Melyik sessionhöz tartozik a fenti állapot — az utólagos szinkronnál
+    /// több nézet is mutathat Health-dobozt, ne lássák egymás mentését.
+    @Published private(set) var currentSessionID: PersistentIdentifier?
     /// Automatikus mentés minden edzés végén.
     @Published var autoSave: Bool {
         didSet { UserDefaults.standard.set(autoSave, forKey: "health.autosave") }
@@ -30,6 +34,7 @@ final class HealthKitExporter: ObservableObject {
     func resetState() {
         guard !isExporting else { return }
         state = .idle
+        currentSessionID = nil
     }
 
     /// A session mentése. Duplikáció-védelem: már szinkronizált session nem
@@ -37,10 +42,12 @@ final class HealthKitExporter: ObservableObject {
     /// szintén ez a jelző hangolja majd össze — lásd #165.)
     func export(_ session: WorkoutSessionRecord) async {
         guard HKHealthStore.isHealthDataAvailable() else {
+            currentSessionID = session.persistentModelID
             state = .failed("Ezen az eszközön nem érhető el a HealthKit.")
             return
         }
         guard !session.healthKitSynced else {
+            currentSessionID = session.persistentModelID
             state = .saved
             return
         }
@@ -56,6 +63,7 @@ final class HealthKitExporter: ObservableObject {
         guard !isExporting else { return }
         isExporting = true
         defer { isExporting = false }
+        currentSessionID = session.persistentModelID
         state = .saving
 
         let workoutType = HKObjectType.workoutType()
