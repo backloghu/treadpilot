@@ -31,6 +31,6 @@
 		<string>workout-processing</string>
 	</array>
 	<key>WKCompanionAppBundleIdentifier</key>
-	<string>dev.nitrolearning.treadpilot</string>
+	<string>hu.backlog.treadpilot</string>
 </dict>
 </plist>
