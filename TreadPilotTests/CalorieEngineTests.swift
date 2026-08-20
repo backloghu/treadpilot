@@ -1,5 +1,5 @@
 import XCTest
-@testable import TunturiRun
+@testable import TreadPilot
 
 final class CalorieEngineTests: XCTestCase {
 

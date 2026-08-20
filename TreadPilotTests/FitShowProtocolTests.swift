@@ -1,5 +1,5 @@
 import XCTest
-@testable import TunturiRun
+@testable import TreadPilot
 
 /// A keretek elvárt bájtsorai a kutatás három egybehangzó forrásából származnak:
 /// FitShow gyártói doksi v1.1, qdomyos-zwift fitshowtreadmill.cpp, tyge68/fitshow-treadmill.
