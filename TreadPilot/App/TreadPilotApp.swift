@@ -22,7 +22,7 @@ struct TreadPilotApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            contentRoot
                 .environmentObject(client)
                 .environmentObject(runner)
                 .environmentObject(recorder)
@@ -32,5 +32,16 @@ struct TreadPilotApp: App {
         }
         .modelContainer(for: [WorkoutSessionRecord.self, WorkoutSampleRecord.self,
                               CustomProgram.self, CustomSegmentRecord.self])
+    }
+
+    /// DEBUG buildben a `-seedSampleData` kapcsoló bemutató előzményekkel
+    /// tölti fel az appot (képernyőképekhez) — lásd SampleData.
+    @ViewBuilder
+    private var contentRoot: some View {
+        #if DEBUG
+        ContentView().modifier(SampleDataSeeder())
+        #else
+        ContentView()
+        #endif
     }
 }

@@ -115,6 +115,9 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         phase = .idle
     }
 
+    /// A demó lépésszámláló törtrésze két tick között.
+    private var demoStepFraction = 0.0
+
     private func demoTick() {
         switch state.status {
         case .countdown:
@@ -127,7 +130,15 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             state.elapsedSeconds += 1
             state.distanceKm = ((state.distanceKm + state.speedKmh / 3600) * 1000).rounded() / 1000
             state.kcal = Int(Double(state.elapsedSeconds) * 0.11 * max(1, state.speedKmh / 6))
-            state.steps += Int(state.speedKmh * 25 / 60 * 60 / 60 * 10)
+            // Valósághű lépésütem: a kadencia sétától futásig nagyjából
+            // 1,7–3,0 lépés/mp, és nem lineárisan nő a sebességgel. Törtrészt
+            // gyűjtünk, különben a másodpercenkénti kerekítés elsodorná.
+            if state.speedKmh > 0 {
+                demoStepFraction += 1.4 + state.speedKmh * 0.12
+                let whole = demoStepFraction.rounded(.down)
+                state.steps += Int(whole)
+                demoStepFraction -= whole
+            }
             state.heartRate = 78 + Int(state.speedKmh * 7) + Int.random(in: -2...2)
         default:
             break
