@@ -1,40 +1,62 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "NSHealthShareUsageDescription" : {
-      "comment" : "Health olvasási engedély a Watchon (élő pulzus)",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Required to measure your heart rate live and mirror it to the iPhone app."
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A pulzus élő méréséhez és az iPhone-appba tükrözéséhez szükséges."
+  "sourceLanguage": "en",
+  "strings": {
+    "CFBundleDisplayName": {
+      "comment": "Az app neve — szándékosan nem fordítjuk egyik nyelvre sem.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TreadPilot"
           }
         }
       }
     },
-    "NSHealthUpdateUsageDescription" : {
-      "comment" : "Health írási engedély a Watchon (edzés rögzítése)",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Required to record the workout session on your Watch."
+    "CFBundleName": {
+      "comment": "Az app neve — szándékosan nem fordítjuk egyik nyelvre sem.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TreadPilot"
+          }
+        }
+      }
+    },
+    "NSHealthShareUsageDescription": {
+      "comment": "Health olvasási engedély a Watchon (élő pulzus)",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required to measure your heart rate live and mirror it to the iPhone app."
           }
         },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Az edzés Watch-oldali rögzítéséhez szükséges."
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A pulzus élő méréséhez és az iPhone-appba tükrözéséhez szükséges."
+          }
+        }
+      }
+    },
+    "NSHealthUpdateUsageDescription": {
+      "comment": "Health írási engedély a Watchon (edzés rögzítése)",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required to record the workout session on your Watch."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Az edzés Watch-oldali rögzítéséhez szükséges."
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }
