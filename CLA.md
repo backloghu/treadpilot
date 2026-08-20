@@ -3,10 +3,6 @@
 **TreadPilot — Backlog Fejlesztő Kft., Budapest, Hungary**
 Version 1.0, 2026-08-20
 
-> **Not legal advice.** This document is written in plain language on purpose.
-> If you are contributing on behalf of an employer, or anything here matters to
-> you legally, please have someone qualified read it first.
-
 By submitting a contribution to this project — a pull request, a patch, a
 protocol trace, documentation, a translation — you agree to the terms below.
 
