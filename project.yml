@@ -101,3 +101,8 @@ schemes:
         TunturiRun: all
     test:
       targets: [TunturiRunTests]
+  # Közvetlen futtatás a párosított órára — telepítési hibák diagnosztizálásához.
+  TunturiRunWatch:
+    build:
+      targets:
+        TunturiRunWatch: all
