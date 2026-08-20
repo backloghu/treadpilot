@@ -136,6 +136,23 @@
         }
       }
     },
+    "<%lld bpm, max %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "<%lld bpm, max %@"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "<%lld bpm, max %@"
+          }
+        }
+      }
+    },
     "Age": {
       "extractionState": "manual",
       "localizations": {
@@ -812,6 +829,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Óvatos teszt (6 perc)"
+          }
+        }
+      }
+    },
+    "Goal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goal"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cél"
           }
         }
       }
@@ -2579,6 +2613,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "kézi érték"
+          }
+        }
+      }
+    },
+    "min/km": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "min/km"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "perc/km"
           }
         }
       }

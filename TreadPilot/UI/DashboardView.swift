@@ -139,7 +139,7 @@ struct DashboardView: View {
             // A compact 3-column grid so everything fits on one screen with a program.
             Grid(horizontalSpacing: 8, verticalSpacing: 8) {
                 GridRow {
-                    compactStat(String(localized: "Time"), formattedTime(client.state.elapsedSeconds))
+                    compactStat(String(localized: "Time"), SessionFormat.duration(client.state.elapsedSeconds))
                     compactStat(String(localized: "Distance"), String(format: "%.2f km", client.state.distanceKm))
                     compactStat(String(localized: "Calories"), kcalText)
                 }
@@ -157,7 +157,7 @@ struct DashboardView: View {
         } else {
             Grid(horizontalSpacing: 10, verticalSpacing: 10) {
                 GridRow {
-                    stat(String(localized: "Time"), formattedTime(client.state.elapsedSeconds))
+                    stat(String(localized: "Time"), SessionFormat.duration(client.state.elapsedSeconds))
                     stat(String(localized: "Distance"), String(format: "%.2f km", client.state.distanceKm))
                 }
                 GridRow {
@@ -327,8 +327,11 @@ struct DashboardView: View {
                             .foregroundStyle(.white)
                             .lineLimit(1)
                         if let next = runner.nextSegment {
+                            // Same helper the editor's segment rows use, so
+                            // speed+incline reads with one separator across
+                            // the app instead of a stray comma here.
                             Text("→ \(next.name) · "
-                                 + String(format: "%.1f km/h, %d%%", next.targetSpeedKmh, next.targetIncline))
+                                 + SegmentFormat.target(speedKmh: next.targetSpeedKmh, incline: next.targetIncline))
                                 .font(.caption)
                                 .foregroundStyle(Brand.fgDim)
                                 .lineLimit(1)
@@ -340,13 +343,36 @@ struct DashboardView: View {
                     }
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 0) {
-                        // The segment countdown is the heart of the program — shown large.
-                        Text(formattedTime(Int(segmentRemaining)))
-                            .font(Brand.display(30, .bold))
-                            .foregroundStyle(Brand.accent)
-                            .contentTransition(.numericText(countsDown: true))
+                        if case .distance(let goalKm) = segment.goal {
+                            // Exact progress against the goal takes the prominent
+                            // spot; the countdown is only an ETA now, so it drops
+                            // to the small line below, marked with "~".
+                            Text(SegmentFormat.distanceProgress(runner.segmentProgress.distanceKm,
+                                                                goalKm: goalKm))
+                                .font(Brand.display(30, .bold))
+                                .foregroundStyle(Brand.accent)
+                                .contentTransition(.numericText())
+                            // ETA and pace on one caption line:
+                            // SessionFormat.duration rolls into hours the same way
+                            // the Σ line below it does — a 42.2 km goal no longer
+                            // prints "~506:24" next to "~Σ 8:26:24" — and runners
+                            // think in pace, so it rides the same line rather than
+                            // adding a row to a strip that already holds a name,
+                            // a next-segment preview and a stop button.
+                            Text(distanceEtaLine(segment: segment, remaining: segmentRemaining))
+                                .font(Brand.display(11, .medium))
+                                .foregroundStyle(Brand.grey)
+                                .lineLimit(1)
+                        } else {
+                            // The segment countdown is the heart of the program — shown large.
+                            Text(SessionFormat.duration(Int(segmentRemaining)))
+                                .font(Brand.display(30, .bold))
+                                .foregroundStyle(Brand.accent)
+                                .contentTransition(.numericText(countsDown: true))
+                        }
                         if let programRemaining = runner.programRemainingSeconds {
-                            Text("Σ " + SessionFormat.duration(programRemaining))
+                            Text((program.hasEstimatedDuration ? "~Σ " : "Σ ")
+                                 + SessionFormat.duration(programRemaining))
                                 .font(Brand.display(11, .medium))
                                 .foregroundStyle(Brand.grey)
                         }
@@ -435,7 +461,12 @@ struct DashboardView: View {
         .overlay(RoundedRectangle(cornerRadius: 3).stroke(Brand.gridLine))
     }
 
-    private func formattedTime(_ seconds: Int) -> String {
-        String(format: "%d:%02d", seconds / 60, seconds % 60)
+    /// "~8:26 · 7:30 min/km" — the distance segment's ETA and pace, on one
+    /// line. Uses the commanded speed, the same one the ETA itself is derived
+    /// from, so the two numbers on the line agree with each other.
+    private func distanceEtaLine(segment: WorkoutSegment, remaining: TimeInterval) -> String {
+        let eta = "~" + SessionFormat.duration(Int(remaining))
+        guard let pace = SegmentFormat.pace(speedKmh: segment.targetSpeedKmh) else { return eta }
+        return eta + " · " + pace
     }
 }

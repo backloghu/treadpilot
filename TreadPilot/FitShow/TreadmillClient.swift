@@ -55,6 +55,12 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var variant: FitShowVariant = .standard
 
+    /// How old the data in hand may be while the belt runs before `staleData` is
+    /// raised. Named, because `ProgramRunner.maxTickSeconds` is derived from it: the
+    /// runner may not credit a tick with more running than one frame is evidence
+    /// for, and a bare literal here would let the two drift apart silently.
+    nonisolated static let freshnessHorizonSeconds: TimeInterval = 3
+
     // The services observed in the 2019 Tunturi consoles' advertisements.
     private static let advertisedServices = [CBUUID(string: "E0FF"), CBUUID(string: "1826")]
     private static let preferredService = CBUUID(string: "FFE0")
@@ -315,8 +321,10 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     private func tick() {
         guard writeCharacteristic != nil else { return }
 
-        // Guarding data freshness: while running, data older than 3 s is suspect.
-        staleData = state.isRunning && Date().timeIntervalSince(lastFrameAt) > 3
+        // Guarding data freshness: while running, older data is suspect — the
+        // status and the speed in hand are then remembered values, not observations.
+        staleData = state.isRunning
+            && Date().timeIntervalSince(lastFrameAt) > Self.freshnessHorizonSeconds
 
         // An unacknowledged command drops out after 3 sends so it does not starve the poll.
         if let head = pending.first, head.attempts >= 3 {

@@ -24,7 +24,12 @@ struct ProgramListView: View {
                     } label: {
                         row(name: program.name,
                             seconds: program.totalSeconds,
-                            count: program.segments.count)
+                            count: program.segments.count,
+                            // CustomProgram.hasEstimatedDuration reads the
+                            // stored records directly instead of converting
+                            // the whole program on every row render for one
+                            // Bool.
+                            hasEstimatedDuration: program.hasEstimatedDuration)
                     }
                     .listRowBackground(Brand.bgElev1)
                     .listRowSeparatorTint(Brand.gridLine)
@@ -61,7 +66,8 @@ struct ProgramListView: View {
                     HStack {
                         row(name: program.name,
                             seconds: Int(program.totalDuration),
-                            count: program.segments.count)
+                            count: program.segments.count,
+                            hasEstimatedDuration: program.hasEstimatedDuration)
                         Spacer()
                         Button {
                             duplicate(program)
@@ -93,12 +99,13 @@ struct ProgramListView: View {
         .toolbarBackground(.visible, for: .navigationBar)
     }
 
-    private func row(name: String, seconds: Int, count: Int) -> some View {
+    private func row(name: String, seconds: Int, count: Int, hasEstimatedDuration: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(name)
                 .font(Brand.display(14, .semibold))
                 .foregroundStyle(.white)
-            Text(SessionFormat.duration(seconds) + " · " + String(localized: "\(count) segments"))
+            Text((hasEstimatedDuration ? "~" : "") + SessionFormat.duration(seconds)
+                 + " · " + String(localized: "\(count) segments"))
                 .font(.caption)
                 .foregroundStyle(Brand.grey)
         }

@@ -138,7 +138,8 @@ struct HomeView: View {
                 .background(Brand.bgElev2, in: RoundedRectangle(cornerRadius: Brand.radius))
                 .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
             }
-            Text(SessionFormat.duration(Int(selectedProgram.totalDuration))
+            Text((selectedProgram.hasEstimatedDuration ? "~" : "")
+                 + SessionFormat.duration(Int(selectedProgram.totalDuration))
                  // The segment count is a separate key, with a plural variation
                  // in the String Catalog — so it never reads "1 segments".
                  + " · " + String(localized: "\(selectedProgram.segments.count) segments")

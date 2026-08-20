@@ -41,9 +41,9 @@ struct ProgramEditorView: View {
                                 Text(segment.name)
                                     .font(Brand.display(14, .semibold))
                                     .foregroundStyle(.white)
-                                Text(SessionFormat.duration(segment.durationSeconds)
-                                     + String(format: " · %.1f km/h · %d%%",
-                                              segment.targetSpeedKmh, segment.targetIncline))
+                                Text(SegmentFormat.goal(segment.goal) + " · "
+                                     + SegmentFormat.target(speedKmh: segment.targetSpeedKmh,
+                                                             incline: segment.targetIncline))
                                     .font(.caption)
                                     .foregroundStyle(Brand.grey)
                             }
@@ -95,10 +95,14 @@ struct ProgramEditorView: View {
     }
 
     /// Live-updating program totals: duration, distance, elevation, average speed.
+    /// The distance total is always exact; the time total is only a projection
+    /// whenever any segment's duration is derived rather than commanded, so it
+    /// gets the `~` prefix (spec: "exact distance, ~ prefixed time").
     private var summaryRow: some View {
         let workout = program.asWorkoutProgram
+        let timeValue = SessionFormat.duration(Int(workout.totalDuration))
         return HStack(spacing: 0) {
-            summaryCell(String(localized: "Time"), SessionFormat.duration(Int(workout.totalDuration)))
+            summaryCell(String(localized: "Time"), workout.hasEstimatedDuration ? "~" + timeValue : timeValue)
             summaryCell(String(localized: "Distance"), String(format: "%.2f km", workout.totalDistanceKm))
             summaryCell(String(localized: "Elevation gain"), String(format: "%.0f m", workout.totalElevationGainM))
             summaryCell(String(localized: "Avg"), String(format: "%.1f km/h", workout.averageSpeedKmh))
@@ -140,6 +144,11 @@ struct ProgramEditorView: View {
             targetSpeedKmh: segment.targetSpeedKmh,
             targetIncline: segment.targetIncline
         )
+        // After targetSpeedKmh (set above): a distance goal derives its stored
+        // planned-duration mirror from the speed. Same ordering constraint,
+        // and the same reason, as CustomProgram.copy(of:) — without this the
+        // duplicate of a distance segment silently reverts to a time goal.
+        copy.goal = segment.goal
         copy.program = program
         program.segments.append(copy)
         reindex(program.sortedSegments)
@@ -185,13 +194,35 @@ struct SegmentEditorView: View {
             }
 
             Section {
-                Stepper(value: $segment.durationSeconds, in: 15...7200, step: 15) {
-                    labeled(String(localized: "Duration"), SessionFormat.duration(segment.durationSeconds))
+                Picker(String(localized: "Goal"), selection: $segment.goalKind) {
+                    Text(String(localized: "Time")).tag(SegmentGoal.Kind.time)
+                    Text(String(localized: "Distance")).tag(SegmentGoal.Kind.distance)
                 }
+                .pickerStyle(.segmented)
+                .tint(Brand.accent)
                 .listRowBackground(Brand.bgElev1)
-                Stepper(value: $segment.targetSpeedKmh,
+
+                if segment.goalKind == .distance {
+                    Stepper(value: distanceBinding, in: WorkoutSegment.goalDistanceRangeKm,
+                            step: WorkoutSegment.goalDistanceStepKm) {
+                        labeled(String(localized: "Distance"), SegmentFormat.distance(segment.goalDistanceKm))
+                    }
+                    .listRowBackground(Brand.bgElev1)
+                } else {
+                    // Bounds come from the model, the same constants
+                    // CustomSegmentRecord.seededGoalDurationSeconds clamps
+                    // into, so the editor and the goal-seeding logic cannot
+                    // drift apart.
+                    Stepper(value: $segment.durationSeconds,
+                            in: WorkoutSegment.goalDurationRangeSeconds,
+                            step: WorkoutSegment.goalDurationStepSeconds) {
+                        labeled(String(localized: "Duration"), SessionFormat.duration(segment.durationSeconds))
+                    }
+                    .listRowBackground(Brand.bgElev1)
+                }
+                Stepper(value: speedBinding,
                         in: limits.minSpeedKmh...limits.maxSpeedKmh, step: 0.1) {
-                    labeled(String(localized: "Speed"), String(format: "%.1f km/h", segment.targetSpeedKmh))
+                    labeled(String(localized: "Speed"), speedLabel)
                 }
                 .listRowBackground(Brand.bgElev1)
                 Stepper(value: $segment.targetIncline,
@@ -217,6 +248,37 @@ struct SegmentEditorView: View {
         .toolbarBackground(Brand.bgDeep, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .onDisappear { try? context.save() }
+    }
+
+    /// A distance goal is stored exactly; re-assigning it through
+    /// `CustomSegmentRecord.goal`'s setter also refreshes the planned-duration
+    /// mirror (`durationSeconds`) the row and summary labels sort on.
+    private var distanceBinding: Binding<Double> {
+        Binding(get: { segment.goalDistanceKm },
+                set: { segment.goal = .distance(km: $0) })
+    }
+
+    /// For a distance goal the planned-duration mirror also depends on speed,
+    /// so a speed change has to refresh it the same way a distance change does.
+    /// `refreshPlannedDuration()` is a no-op for a time goal, so this is safe
+    /// to use unconditionally and keeps the time-goal editor unchanged.
+    private var speedBinding: Binding<Double> {
+        Binding(get: { segment.targetSpeedKmh },
+                set: { newValue in
+                    segment.targetSpeedKmh = newValue
+                    segment.refreshPlannedDuration()
+                })
+    }
+
+    /// "8.0 km/h", with the implied pace appended for a distance goal —
+    /// runners think in pace.
+    private var speedLabel: String {
+        let speed = SegmentFormat.speed(segment.targetSpeedKmh)
+        guard segment.goalKind == .distance,
+              let pace = SegmentFormat.pace(speedKmh: segment.targetSpeedKmh) else {
+            return speed
+        }
+        return speed + " · " + pace
     }
 
     private func labeled(_ title: String, _ value: String) -> some View {
