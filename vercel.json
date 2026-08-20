@@ -3,6 +3,19 @@
   "outputDirectory": "landing",
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.treadpilot.app"
+        }
+      ],
+      "destination": "https://treadpilot.app/$1",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

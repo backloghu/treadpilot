@@ -3,6 +3,10 @@
 **TreadPilot — Backlog Fejlesztő Kft., Budapest, Hungary**
 Version 1.0, 2026-08-20
 
+**Who this is for:** people contributing code or content to the project.
+If you are the copyright holder (Backlog Fejlesztő Kft.), this does not apply
+to you — you already own the rights and cannot license work to yourself.
+
 By submitting a contribution to this project — a pull request, a patch, a
 protocol trace, documentation, a translation — you agree to the terms below.
 
