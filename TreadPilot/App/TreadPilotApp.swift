@@ -14,9 +14,9 @@ struct TreadPilotApp: App {
     @StateObject private var watchHeartRate = WatchHeartRateManager.shared
 
     init() {
-        // A tükrözés-átvevőt már app-induláskor regisztrálni kell: a HealthKit
-        // háttérben is elindíthatja az appot egy Watch-session átadásához,
-        // amikor UI (és onAppear) még nincs.
+        // The mirroring receiver has to be registered at app launch: HealthKit
+        // can launch the app in the background to hand over a Watch session,
+        // when there is no UI (and no onAppear) yet.
         WatchHeartRateManager.shared.activate()
     }
 
@@ -34,8 +34,8 @@ struct TreadPilotApp: App {
                               CustomProgram.self, CustomSegmentRecord.self])
     }
 
-    /// DEBUG buildben a `-seedSampleData` kapcsoló bemutató előzményekkel
-    /// tölti fel az appot (képernyőképekhez) — lásd SampleData.
+    /// In a DEBUG build the `-seedSampleData` flag fills the app with demo
+    /// history (for screenshots) — see SampleData.
     @ViewBuilder
     private var contentRoot: some View {
         #if DEBUG

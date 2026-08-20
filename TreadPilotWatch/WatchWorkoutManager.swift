@@ -4,13 +4,14 @@
 import Foundation
 import HealthKit
 
-/// Watch-oldali edzésmenedzser: HKWorkoutSession + élő pulzus, a sessiont az
-/// iPhone-appba tükrözve (startMirroringToCompanionDevice). A pulzusmintákat
-/// JSON-üzenetként küldi a telefonnak; a telefon "end" parancsára lezár.
+/// Watch-side workout manager: HKWorkoutSession + live heart rate, with the
+/// session mirrored to the iPhone app (startMirroringToCompanionDevice). It sends
+/// heart-rate samples to the phone as JSON messages, and closes on the phone's
+/// "end" command.
 @MainActor
 final class WatchWorkoutManager: NSObject, ObservableObject {
 
-    /// Közös példány — az app UI-ja és a WKApplicationDelegate ugyanazt éri el.
+    /// Shared instance — the app UI and the WKApplicationDelegate reach the same one.
     static let shared = WatchWorkoutManager()
 
     @Published private(set) var heartRate = 0
@@ -69,9 +70,9 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
     }
 
     #if DEBUG
-    /// Bemutató állapot képernyőképekhez (`-seedSampleData` indítási
-    /// kapcsolóval): élő pulzust mutat valódi HealthKit-session nélkül,
-    /// mert a szimulátorban nincs szenzor. Éles buildbe nem fordul bele.
+    /// Demo state for screenshots (via the `-seedSampleData` launch flag): shows a
+    /// live heart rate without a real HealthKit session, because the simulator has
+    /// no sensor. Not compiled into a release build.
     @discardableResult
     func startSampleState() -> Bool {
         guard CommandLine.arguments.contains("-seedSampleData"), session == nil else { return false }
@@ -102,9 +103,9 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
         guard let builder else { return }
         Task { @MainActor in
             try? await builder.endCollection(at: Date())
-            // A Watch itt csak pulzusszenzor: a workoutot MINDIG az iPhone
-            // menti a Healthbe (gazdagabb adattal, megbízhatóan) — a Watch a
-            // saját példányát eldobja, így duplikáció sem lehet (#182).
+            // The Watch is only a heart-rate sensor here: the iPhone ALWAYS
+            // saves to Health (with richer data, reliably) — the Watch discards its
+            // own instance, so duplication is impossible (#182).
             builder.discardWorkout()
             self.session = nil
             self.builder = nil
@@ -136,7 +137,7 @@ extension WatchWorkoutManager: HKWorkoutSessionDelegate {
 
     nonisolated func workoutSession(_ workoutSession: HKWorkoutSession,
                                     didReceiveDataFromRemoteWorkoutSession data: [Data]) {
-        // Az iPhone "end" parancsa zárja a Watch-oldali sessiont.
+        // The iPhone's "end" command closes the Watch-side session.
         let shouldEnd = data.contains { item in
             (try? JSONSerialization.jsonObject(with: item) as? [String: Any])
                 .flatMap { $0["cmd"] as? String } == "end"

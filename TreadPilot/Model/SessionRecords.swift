@@ -4,32 +4,33 @@
 import Foundation
 import SwiftData
 
-/// Egy rögzített edzés. A mintákat kaszkád törléssel birtokolja.
+/// One recorded workout. It owns its samples with a cascade delete.
 @Model
 final class WorkoutSessionRecord {
     var startedAt: Date
     var endedAt: Date?
     var deviceName: String
     var programName: String?
-    /// Tényleges mozgásidő (mp) — a szünet külön számolódik.
+    /// Actual moving time (s) — paused time is counted separately.
     var movingSeconds: Int
     var pausedSeconds: Int
     var distanceKm: Double
-    /// A pad saját kalóriaértéke (nyers, testadatok nélküli becslés).
+    /// The treadmill's own calorie value (a raw estimate, without body data).
     var padKcal: Int
-    /// Az app saját számítása (a kalória-task tölti értelmes tartalommal).
+    /// The app's own calculation.
     var computedKcal: Double
     var avgSpeedKmh: Double
     var maxSpeedKmh: Double
     var avgHeartRate: Int
     var maxHeartRate: Int
     var healthKitSynced: Bool
-    /// Volt-e aktív Watch-session az edzés alatt — ilyenkor a Watch menti a
-    /// workoutot a Healthbe, az iPhone-oldali export kihagyandó (duplikáció).
+    /// Whether the Watch supplied heart rate during the workout. Informational
+    /// only: since #182 the phone always writes the workout to Health and the
+    /// Watch discards its own instance, so this never gates the export.
     var watchProvidedHeartRate: Bool = false
-    /// Összes megtett emelkedés méterben (sebesség × pozitív dőlés integrálja).
+    /// Total elevation gained, in metres (the integral of speed × positive incline).
     var elevationGainM: Double = 0
-    /// Demó (szimulált pad) edzés — nem kerül az Apple Healthbe.
+    /// A demo (simulated treadmill) workout — not written to Apple Health.
     var isDemo: Bool = false
 
     @Relationship(deleteRule: .cascade, inverse: \WorkoutSampleRecord.session)
@@ -60,12 +61,12 @@ final class WorkoutSessionRecord {
     }
 }
 
-/// Egy másodpercenkénti minta az edzésből.
+/// A one-per-second sample from the workout.
 @Model
 final class WorkoutSampleRecord {
     var offsetSeconds: Int
-    /// Valós idejű időbélyeg — a Health-exporthoz kell, mert a mozgásidő-offset
-    /// szünetek után elcsúszna a fali órától.
+    /// Wall-clock timestamp — needed for the Health export, because the
+    /// moving-time offset would drift from the wall clock after pauses.
     var timestamp: Date = Date.distantPast
     var speedKmh: Double
     var inclinePercent: Int

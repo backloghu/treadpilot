@@ -4,7 +4,7 @@
 import SwiftData
 import SwiftUI
 
-/// Edzés végi összefoglaló — a rögzítő a session lezárásakor nyitja fel.
+/// End-of-workout summary — the recorder presents it when the session closes.
 struct SummaryView: View {
     let session: WorkoutSessionRecord
     @Environment(\.dismiss) private var dismiss

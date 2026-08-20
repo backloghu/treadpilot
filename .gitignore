@@ -6,7 +6,7 @@ xcuserdata/
 .vercel
 .env*.local
 
-# App Store és marketing anyagok — nem a kódtárba tartoznak.
-# A repóban csak app- és landing-specifikus dolog van.
+# App Store and marketing assets — these do not belong in the repository.
+# The repository holds only app- and landing-specific material.
 Marketing Photos/
 docs/

@@ -1,20 +1,20 @@
 name: TreadPilot
 options:
   bundleIdPrefix: hu.backlog
-  # Angol az alapnyelv (kulcs + fallback), a magyar fordításként a String
-  # Catalogokban él (Localizable.xcstrings / InfoPlist.xcstrings).
+  # English is the base language (key + fallback); Hungarian lives as a
+  # translation in the String Catalogs (Localizable.xcstrings / InfoPlist.xcstrings).
   developmentLanguage: en
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
 
-# Projektszintű beállítás — minden target örökli, így se Xcode-ban, se
-# CLI-buildnél nem kell külön megadni a fejlesztői csapatot.
+# Project-level setting — every target inherits it, so the development team
+# does not have to be set separately in Xcode or for a CLI build.
 settings:
   base:
     DEVELOPMENT_TEAM: 2Y4K7LQZ3R
-    # A fordítandó szövegeket az Xcode szedi ki a kódból a String
-    # Catalogba — így az interpolációs kulcsformátum garantáltan pontos.
+    # Xcode extracts the localizable strings from the code into the String
+    # Catalog — this guarantees the interpolation key format is exact.
     SWIFT_EMIT_LOC_STRINGS: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
 
@@ -29,7 +29,7 @@ targets:
         CFBundleDisplayName: TreadPilot
         CFBundleName: TreadPilot
         UILaunchScreen: {}
-        # Az angol az alapszöveg, a magyar fordítás:
+        # English is the source text; the Hungarian translation lives in
         # TreadPilot/Resources/InfoPlist.xcstrings
         NSBluetoothAlwaysUsageDescription: >-
           Bluetooth access is required to connect to your treadmill, read
@@ -76,11 +76,11 @@ targets:
         CFBundleName: TreadPilot
         WKApplication: true
         WKCompanionAppBundleIdentifier: hu.backlog.treadpilot
-        # Enélkül watchOS-en nem futhat HKWorkoutSession (és a telefonról
-        # indítás sem működik).
+        # Without this an HKWorkoutSession cannot run on watchOS (and
+        # starting it from the phone does not work either).
         WKBackgroundModes:
           - workout-processing
-        # Az angol az alapszöveg, a magyar fordítás:
+        # English is the source text; the Hungarian translation lives in
         # TreadPilotWatch/InfoPlist.xcstrings
         NSHealthShareUsageDescription: >-
           Required to measure your heart rate live and mirror it to the
@@ -93,8 +93,8 @@ targets:
         com.apple.developer.healthkit: true
     settings:
       base:
-        # A HealthKit delegate-minták miatt itt Swift 5 mód fut — a szigorú
-        # konkurencia-ellenőrzés bekapcsolása külön feladat.
+        # Swift 5 mode runs here because of the HealthKit delegate patterns —
+        # enabling strict concurrency checking is a separate task.
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: false
         PRODUCT_BUNDLE_IDENTIFIER: hu.backlog.treadpilot.watchkitapp
@@ -119,7 +119,7 @@ schemes:
         TreadPilot: all
     test:
       targets: [TreadPilotTests]
-  # Közvetlen futtatás a párosított órára — telepítési hibák diagnosztizálásához.
+  # Direct run onto the paired Watch — for diagnosing installation failures.
   TreadPilotWatch:
     build:
       targets:

@@ -4,19 +4,20 @@
 import Foundation
 import HealthKit
 
-/// A Watch-kísérőapp tükrözött edzés-sessionjének iPhone-oldali fogadása:
-/// élő pulzus a Watchról. Ha nincs Watch vagy session, minden más változatlanul
-/// működik (a pad kéztartó-szenzora marad a tartalék).
+/// The iPhone-side receiver for the Watch companion app's mirrored workout
+/// session: live heart rate from the Watch. Without a Watch or a session,
+/// everything else works unchanged (the treadmill's handlebar sensor remains
+/// the fallback).
 @MainActor
 final class WatchHeartRateManager: NSObject, ObservableObject {
 
-    /// Közös példány: a tükrözés-átvételt az app indulásakor (háttér-indításnál
-    /// is) regisztrálni kell, nem csak az első képernyő megjelenésekor.
+    /// Shared instance: mirroring hand-off has to be registered at app launch
+    /// (including a background launch), not only when the first screen appears.
     static let shared = WatchHeartRateManager()
 
     @Published private(set) var heartRate = 0
     @Published private(set) var sessionActive = false
-    /// A legutóbbi Watch-indítás hibaüzenete — diagnosztikához a dashboardon.
+    /// The last Watch start's error message — for diagnostics on the dashboard.
     @Published private(set) var startError: String?
 
     private let store = HKHealthStore()
@@ -24,17 +25,16 @@ final class WatchHeartRateManager: NSObject, ObservableObject {
     private var lastHeartRateAt: Date = .distantPast
     private var handlerInstalled = false
 
-    /// Csak akkor ad pulzust, ha az frissnek számít — a Watch elhallgatása
-    /// (levett óra, link-vesztés) után nem szabad örökre a régi értéket
-    /// rögzíteni.
+    /// Only reports a heart rate while it counts as fresh — after the Watch goes
+    /// quiet (taken off, link lost) the old value must not be pinned forever.
     func freshHeartRate(maxAge: TimeInterval = 10) -> Int {
         guard sessionActive, heartRate > 0,
               Date().timeIntervalSince(lastHeartRateAt) <= maxAge else { return 0 }
         return heartRate
     }
 
-    /// App-induláskor hívandó: átveszi a Watch által (vagy kérésünkre) indított
-    /// tükrözött sessionöket — akkor is, ha az app a háttérből éled újra.
+    /// To be called at app launch: takes over mirrored sessions started by the
+    /// Watch (or at our request) — including when the app wakes from the background.
     func activate() {
         guard HKHealthStore.isHealthDataAvailable(), !handlerInstalled else { return }
         handlerInstalled = true
@@ -43,15 +43,15 @@ final class WatchHeartRateManager: NSObject, ObservableObject {
         }
     }
 
-    /// A pad edzésének indulásakor megpróbáljuk elindítani a Watch-appot.
-    /// A hibát nem nyeljük le: a dashboard kiírja, hogy diagnosztizálható legyen.
+    /// When the treadmill workout starts, try to launch the Watch app.
+    /// The error is not swallowed: the dashboard shows it so it can be diagnosed.
     func startWatchWorkout() async {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = .running
         configuration.locationType = .indoor
         do {
-            // A Watch-indításhoz HealthKit-engedély is kell az iPhone-oldalon.
+            // Launching the Watch also needs HealthKit permission on the iPhone side.
             try await store.requestAuthorization(
                 toShare: [HKObjectType.workoutType()],
                 read: [HKQuantityType(.heartRate)]
@@ -63,7 +63,7 @@ final class WatchHeartRateManager: NSObject, ObservableObject {
         }
     }
 
-    /// Edzés vége: szólunk a Watchnak, hogy zárja le a saját sessionjét.
+    /// End of workout: tell the Watch to close its own session.
     func endWatchWorkout() {
         guard let session = mirroredSession else { return }
         if let payload = try? JSONSerialization.data(withJSONObject: ["cmd": "end"]) {

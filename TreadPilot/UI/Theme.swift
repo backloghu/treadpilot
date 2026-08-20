@@ -3,11 +3,11 @@
 
 import SwiftUI
 
-/// Backlog.hu arculati tokenek — forrás: backlog_landing/docs/brand/tokens.json.
-/// Elv: „Mérnöki Minimalizmus / Future Industrial” — sötét alapértelmezés,
-/// neon sárga akcentus, Space Grotesk display, dobozokba rendezett tartalom.
+/// Backlog.hu brand tokens — source: backlog_landing/docs/brand/tokens.json.
+/// Principle: "Engineering Minimalism / Future Industrial" — a dark default, a
+/// neon yellow accent, Space Grotesk for display, content arranged in boxes.
 enum Brand {
-    // Színek (tokens.json → color)
+    // Colours (tokens.json → color)
     static let bgDeep = Color(hex: 0x030303)
     static let bgElev1 = Color(hex: 0x0A0A0A)
     static let bgElev2 = Color(hex: 0x111111)
@@ -15,15 +15,15 @@ enum Brand {
     static let fgMid = Color(hex: 0xD6D6D6)
     static let fgDim = Color(hex: 0xB3B3B3)
     static let grey = Color(hex: 0x888888)
-    static let accent = Color(hex: 0xFFEB3B)   // Neon Yellow — sötét háttéren
-    static let gold = Color(hex: 0xC7A008)     // Industrial Gold — világoson
+    static let accent = Color(hex: 0xFFEB3B)   // Neon Yellow — on a dark background
+    static let gold = Color(hex: 0xC7A008)     // Industrial Gold — on a light background
     static let gridLine = Color.white.opacity(0.10)
     static let danger = Color(hex: 0xFF5347)
 
-    // Sugarak (tokens.json → radius; sűrű felületen 6)
+    // Radii (tokens.json → radius; 6 on a dense surface)
     static let radius: CGFloat = 6
 
-    // Display-tipográfia: Space Grotesk (bundle-özött TTF-ek)
+    // Display typography: Space Grotesk (bundled TTFs)
     enum DisplayWeight: String {
         case light = "SpaceGrotesk-Light"
         case regular = "SpaceGrotesk-Regular"
@@ -46,10 +46,10 @@ extension Color {
     }
 }
 
-// MARK: - Újrafelhasználható arculati elemek
+// MARK: - Reusable brand elements
 
-/// „Box logo”: fekete, lekerekített doboz, fehér felirat + sárga pont.
-/// A doboz a brand-szabály szerint világos háttéren is fekete marad.
+/// "Box logo": a black, rounded box with white lettering + a yellow dot.
+/// Per the brand rule the box stays black even on a light background.
 struct BrandWordmark: View {
     var size: CGFloat = 13
 
@@ -67,11 +67,11 @@ struct BrandWordmark: View {
         .padding(.vertical, 6)
         .background(Brand.ink, in: RoundedRectangle(cornerRadius: Brand.radius))
         .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
-        .fixedSize() // a zsúfolt toolbar ne csonkolja a wordmarkot
+        .fixedSize() // keep a crowded toolbar from truncating the wordmark
     }
 }
 
-/// Szekciócím („eyebrow”): nagybetűs, ritkított, szürke.
+/// Section label ("eyebrow"): uppercase, letter-spaced, grey.
 struct BrandEyebrow: View {
     let text: String
 
@@ -85,7 +85,7 @@ struct BrandEyebrow: View {
     }
 }
 
-/// Tartalmi doboz: enyhén emelt háttér, 1px-es rácsvonal-keret.
+/// Content box: a slightly raised background with a 1px grid-line border.
 struct BrandBox: ViewModifier {
     var padding: CGFloat = 16
 
@@ -104,7 +104,7 @@ extension View {
     }
 }
 
-/// Fő CTA: neon sárga doboz, fekete, nagybetűs Space Grotesk felirat.
+/// Primary CTA: a neon yellow box with black, uppercase Space Grotesk lettering.
 struct BrandCTAStyle: ButtonStyle {
     var fill: Color = Brand.accent
     var textColor: Color = Brand.ink
@@ -122,7 +122,7 @@ struct BrandCTAStyle: ButtonStyle {
     }
 }
 
-/// Másodlagos gomb: körvonalas („stroke”) stílus.
+/// Secondary button: an outlined ("stroke") style.
 struct BrandStrokeStyle: ButtonStyle {
     var color: Color = .white
 

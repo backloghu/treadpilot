@@ -3,8 +3,8 @@
 
 import Foundation
 
-/// A FitShow futópad-protokoll parancsai és állapotkódjai.
-/// Források: FitShow gyártói doksi (futópad-protokoll v1.1),
+/// The FitShow treadmill protocol's commands and status codes.
+/// Sources: FitShow vendor documentation (treadmill protocol v1.1),
 /// qdomyos-zwift fitshowtreadmill.cpp, tyge68/fitshow-treadmill.
 enum FitShow {
     enum Command: UInt8 {
@@ -20,7 +20,7 @@ enum FitShow {
         case speed = 0x02
         case incline = 0x03
         case total = 0x04
-        /// AnyRun-konzolok kiterjesztett limit-lekérdezése (a 0x02/0x03-ra nem válaszolnak).
+        /// Extended limit query for AnyRun consoles (they do not answer 0x02/0x03).
         case extended = 0x05
     }
 
@@ -29,8 +29,9 @@ enum FitShow {
         case start = 0x01
         case target = 0x02
         case stop = 0x03
-        /// A QZ 0x06-ot küld pause-ként; a gyártói doksi szerint a 0x0A a pause
-        /// és a 0x09 a start/resume — eszközön tesztelendő, melyiket érti a konzol.
+        /// QZ sends 0x06 as pause; per the vendor documentation 0x0A is pause and
+        /// 0x09 is start/resume — which one the console understands is to be tested
+        /// on device.
         case pauseQZ = 0x06
         case startVendor = 0x09
         case pauseVendor = 0x0A
@@ -50,19 +51,20 @@ enum FitShow {
     }
 }
 
-/// A FitShow futásadat-keret két tájolási variánsa. Ugyanaz a keretszerkezet,
-/// de az AnyRun-családú konzolok (pl. a 2019-es Tunturi T40, „SW…CAI” nevek)
-/// az időt (perc, másodperc) bájtpárként, a többi szót big-endianben küldik.
-/// Forrás: qdomyos-zwift fitshowtreadmill.cpp (fitshow_anyrun ág).
+/// The two byte-order variants of the FitShow run-data frame. The frame layout is
+/// the same, but AnyRun-family consoles (for example the 2019 Tunturi T40, with
+/// "SW…CAI" names) send time as a (minute, second) byte pair and the other words
+/// big-endian.
+/// Source: qdomyos-zwift fitshowtreadmill.cpp (the fitshow_anyrun branch).
 enum FitShowVariant: String {
-    case standard  // szavak little-endian, idő = u16 másodperc
-    case anyRun    // szavak big-endian, idő = (perc, másodperc)
+    case standard  // words little-endian, time = u16 seconds
+    case anyRun    // words big-endian, time = (minute, second)
 }
 
-/// Automatikus variáns-felismerés futás közben az idő-bájtpárból: standardnál
-/// a keret 4. payload-bájtja lép másodpercenként (u16le alsó bájt), AnyRunnál
-/// az 5. (a másodperc-bájt). Két egymást követő futó keretből eldönthető;
-/// a perchatár-átfordulást (mindkét bájt változik) kihagyja.
+/// Automatic variant detection at run time from the time byte pair: with standard,
+/// the frame's 4th payload byte advances every second (the low byte of a u16le);
+/// with AnyRun it is the 5th (the seconds byte). Two consecutive running frames are
+/// enough to decide; the minute rollover (where both bytes change) is skipped.
 struct FitShowVariantDetector {
     private var lastByte4: UInt8?
     private var lastByte5: UInt8?
@@ -85,12 +87,12 @@ struct FitShowVariantDetector {
     }
 }
 
-/// A pad sebesség- és dőléskorlátai. A 2019-es Tunturi konzolok jellemzően nem
-/// válaszolnak a SYS_INFO lekérdezésekre, ezért alapértelmezésekkel indulunk
-/// (Competence T40 gyári specifikáció: 16 km/h, 12 dőlésszint), és csak akkor
-/// írjuk felül, ha a pad mégis válaszol.
+/// The treadmill's speed and incline limits. The 2019 Tunturi consoles typically do
+/// not answer the SYS_INFO queries, so we start from defaults (Competence T40 factory
+/// specification: 16 km/h, 12 incline levels) and only override them if the treadmill
+/// does answer.
 struct TreadmillLimits: Equatable {
-    /// 0,1 km/h egységben.
+    /// In units of 0.1 km/h.
     var minSpeedRaw: Int = 8
     var maxSpeedRaw: Int = 160
     var minIncline: Int = 0
@@ -101,30 +103,30 @@ struct TreadmillLimits: Equatable {
     var maxSpeedKmh: Double { Double(maxSpeedRaw) / 10 }
 }
 
-/// Parancsépítők. Minden függvény a keretezetlen payloadot adja vissza
-/// (CMD + adatbájtok); a keretezést a FitShowFrame.encode végzi.
+/// Command builders. Every function returns the unframed payload (CMD + data
+/// bytes); framing is done by FitShowFrame.encode.
 enum FitShowCommands {
-    /// `02 51 51 03` — státusz-poll, ez a protokoll szívverése (~200 ms-onként).
+    /// `02 51 51 03` — status poll, the protocol's heartbeat (roughly every 200 ms).
     static let statusPoll: [UInt8] = [FitShow.Command.sysStatus.rawValue]
 
-    /// `02 53 01 00×8 52 03` — indítás; a konzol visszaszámlálással indul.
-    /// A 8 nulla: sportID (u32) + mód (u8) + szegmensszám (u8) + módérték (u16).
+    /// `02 53 01 00×8 52 03` — start; the console begins with a countdown.
+    /// The 8 zero bytes: sportID (u32) + mode (u8) + segment count (u8) + mode value (u16).
     static let start: [UInt8] =
         [FitShow.Command.sysControl.rawValue, FitShow.ControlSub.start.rawValue]
         + Array(repeating: 0, count: 8)
 
-    /// `02 53 03 50 03` — a szalag lelassul és megáll.
+    /// `02 53 03 50 03` — the belt slows down and stops.
     static let stop: [UInt8] =
         [FitShow.Command.sysControl.rawValue, FitShow.ControlSub.stop.rawValue]
 
-    /// `02 53 0A 59 03` — szünet a GYÁRTÓI doksi szerint (CONTROL_PAUSE = 0x0A).
-    /// A QZ-féle 0x06 a vendor-táblában státuszkód (safety/disable): a T40-en
-    /// beragadó, nem folytatható állapotot okozott — élő teszt igazolta (#181).
+    /// `02 53 0A 59 03` — pause per the VENDOR documentation (CONTROL_PAUSE = 0x0A).
+    /// QZ's 0x06 is a status code in the vendor table (safety/disable): on the T40 it
+    /// caused a stuck, unresumable state — confirmed by a live test (#181).
     static let pause: [UInt8] =
         [FitShow.Command.sysControl.rawValue, FitShow.ControlSub.pauseVendor.rawValue]
 
-    /// Sebesség és dőlés egyetlen közös parancs: dőlésváltáshoz az aktuális
-    /// sebességet küldjük újra az új dőlésbájttal.
+    /// Speed and incline share a single command: to change incline we re-send the
+    /// current speed with the new incline byte.
     static func setTarget(speedKmh: Double, inclinePercent: Int, limits: TreadmillLimits) -> [UInt8] {
         let rawSpeed = Int((speedKmh * 10).rounded())
         let speed = UInt8(clamping: min(max(rawSpeed, limits.minSpeedRaw), limits.maxSpeedRaw))
@@ -133,30 +135,30 @@ enum FitShowCommands {
                 speed, UInt8(bitPattern: incline)]
     }
 
-    /// Opcionális felhasználó-inicializálás (a tyge68-kliens e nélkül is működik).
+    /// Optional user initialisation (the tyge68 client works without it).
     static func userInit(userId: UInt16 = 0, weightKg: UInt8 = 75) -> [UInt8] {
         [FitShow.Command.sysControl.rawValue, FitShow.ControlSub.user.rawValue,
          UInt8(userId & 0xFF), UInt8(userId >> 8), 110, 30, weightKg]
     }
 
-    /// `02 50 02 52 03` — max/min sebesség lekérése.
+    /// `02 50 02 52 03` — query max/min speed.
     static let infoSpeed: [UInt8] =
         [FitShow.Command.sysInfo.rawValue, FitShow.InfoSub.speed.rawValue]
 
-    /// `02 50 03 53 03` — max/min dőlés lekérése.
+    /// `02 50 03 53 03` — query max/min incline.
     static let infoIncline: [UInt8] =
         [FitShow.Command.sysInfo.rawValue, FitShow.InfoSub.incline.rawValue]
 
-    /// `02 50 05 55 03` — kiterjesztett limitek (AnyRun-konzolok válaszolnak rá).
+    /// `02 50 05 55 03` — extended limits (AnyRun consoles answer this one).
     static let infoExtended: [UInt8] =
         [FitShow.Command.sysInfo.rawValue, FitShow.InfoSub.extended.rawValue]
 
-    /// `02 52 00 52 03` — kumulatív számlálók, amikor a gép nem fut.
+    /// `02 52 00 52 03` — cumulative counters, while the machine is not running.
     static let sportData: [UInt8] =
         [FitShow.Command.sysData.rawValue, 0x00]
 }
 
-/// A futó gép 17 bájtos állapotkeretének tartalma.
+/// The contents of the running machine's 17-byte status frame.
 struct RunData: Equatable {
     var status: FitShow.Status
     var speedKmh: Double
@@ -169,7 +171,7 @@ struct RunData: Equatable {
     var programSegment: Int
 }
 
-/// A padtól érkező, már kibontott payloadok értelmezett eseményei.
+/// The interpreted events of the already-unpacked payloads arriving from the treadmill.
 enum FitShowEvent: Equatable {
     case runData(RunData)
     case idle
@@ -200,8 +202,8 @@ enum FitShowParser {
     }
 
     private static func parseStatus(_ payload: [UInt8], variant: FitShowVariant) -> FitShowEvent {
-        // Az idle kizárólag az explicit 0x00 státuszbájtú válasz (02 51 00 51 03);
-        // egy csupasz 0x51-visszhang nem jelentheti azt, hogy a szalag áll.
+        // Idle is exclusively the reply with an explicit 0x00 status byte
+        // (02 51 00 51 03); a bare 0x51 echo cannot mean the belt is stopped.
         guard payload.count > 1 else { return .other(command: payload[0], data: []) }
         let status = FitShow.Status(rawValue: payload[1])
 
@@ -209,7 +211,7 @@ enum FitShowParser {
         if status == .countdown {
             return .countdown(seconds: payload.count > 2 ? Int(payload[2]) : 0)
         }
-        // Teljes futásadat-keret: 02 51 st spd incl idő16 táv16 kcal16 lépés16 HR szegm FCS 03
+        // Full run-data frame: 02 51 st spd incl time16 dist16 kcal16 steps16 HR seg FCS 03
         if payload.count >= 14, let status {
             let elapsed: Int, distanceRaw: Int, kcal: Int
             let stepsPrimary: Int, stepsSecondary: Int
@@ -229,8 +231,8 @@ enum FitShowParser {
                 stepsPrimary = stepsBE
                 stepsSecondary = stepsLE
             }
-            // Egyes konzolok a lépésszámot a variánssal ellentétes bájtsorrendben
-            // küldik — a fiziológiailag hihető olvasatot választjuk.
+            // Some consoles send the step count in the opposite byte order to the
+            // variant — we pick the physiologically plausible reading.
             let steps = plausibleSteps(primary: stepsPrimary, secondary: stepsSecondary,
                                        elapsedSeconds: elapsed)
             let data = RunData(
@@ -250,9 +252,9 @@ enum FitShowParser {
         return .other(command: payload[0], data: Array(payload.dropFirst()))
     }
 
-    /// Lépésszám hihetőség-választása: futásnál legfeljebb ~5 lépés/mp reális.
-    /// Ha az elsődleges (variáns szerinti) olvasat túl nagy, a bájtcserés
-    /// olvasatot használjuk; ha az sem hihető, 0 (a UI kötőjelet mutat).
+    /// Plausibility choice for the step count: while running, at most ~5 steps/s is
+    /// realistic. If the primary reading (per the variant) is too large we use the
+    /// byte-swapped one; if that is not plausible either, 0 (the UI shows a dash).
     static func plausibleSteps(primary: Int, secondary: Int, elapsedSeconds: Int) -> Int {
         let cap = elapsedSeconds * 5 + 90
         if primary <= cap { return primary }
@@ -266,7 +268,7 @@ enum FitShowParser {
         case FitShow.InfoSub.speed.rawValue where payload.count >= 4:
             return .speedLimits(maxRaw: Int(payload[2]), minRaw: Int(payload[3]))
         case FitShow.InfoSub.incline.rawValue:
-            // Rövid válasz = a gép nem támogat dőlésvezérlést.
+            // A short reply = the machine does not support incline control.
             guard payload.count >= 4 else { return .inclineUnsupported }
             return .inclineLimits(
                 max: Int(Int8(bitPattern: payload[2])),

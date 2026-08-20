@@ -4,22 +4,22 @@
 import Foundation
 import SwiftData
 
-/// Edzésrögzítő: a kliens állapotát figyelve automatikusan indít és zár
-/// sessionöket, másodpercenként mintát vesz, és folyamatosan (5 mp-enként)
-/// lemezre ment, hogy app-leállásnál se vesszen el adat.
+/// Workout recorder: watching the client's state it starts and closes sessions
+/// automatically, takes a sample every second, and saves to disk continuously
+/// (every 5 s) so no data is lost if the app is terminated.
 @MainActor
 final class SessionRecorder: ObservableObject {
 
     @Published private(set) var activeSession: WorkoutSessionRecord?
-    /// A most lezárult edzés — az összefoglaló sheet erre nyílik rá.
+    /// The workout that just closed — the summary sheet presents this one.
     @Published var finishedSession: WorkoutSessionRecord?
 
-    /// Az aktuális testadat-profil a kalóriaszámításhoz (a ProfileStore adja).
+    /// The current body-data profile for the calorie calculation (supplied by ProfileStore).
     var profileProvider: (@MainActor () -> BodyProfile)?
-    /// Külső (Apple Watch) pulzusforrás; 0 = nincs — ilyenkor a pad értéke él.
+    /// External (Apple Watch) heart-rate source; 0 = none — the treadmill's value applies then.
     var externalHeartRateProvider: (@MainActor () -> Int)?
-    /// Minden edzés-lezáráskor lefut — a rövid, eldobott sessionöknél is
-    /// (pl. a Watch-workout lezárásához).
+    /// Runs on every workout close — including short, discarded sessions
+    /// (for example to close the Watch workout).
     var onWorkoutEnded: (@MainActor () -> Void)?
 
     private weak var client: FitShowTreadmillClient?
@@ -31,15 +31,16 @@ final class SessionRecorder: ObservableObject {
     private var heartRateSum = 0
     private var heartRateCount = 0
     private var saveCounter = 0
-    // A pad kumulatív számlálóinak kiindulóértéke a session kezdetén —
-    // újracsatlakozás után a korábbi session távja nem számítódhat újra.
+    // The baseline of the treadmill's cumulative counters at the start of the
+    // session — after a reconnect the previous session's distance must not be
+    // counted again.
     private var distanceBaselineKm = 0.0
     private var padKcalBaseline = 0
     private var lastRawDistanceKm = 0.0
     private var lastRawPadKcal = 0
 
-    /// Legalább ennyi mozgásmásodperc kell, hogy a session megmaradjon —
-    /// a félresikerült indítások nem szemetelik tele az előzményeket.
+    /// The session is only kept above this many moving seconds — so botched
+    /// starts do not litter the history.
     private let minimumKeptSeconds = 5
 
     func bind(client: FitShowTreadmillClient, runner: ProgramRunner, context: ModelContext) {
@@ -57,14 +58,14 @@ final class SessionRecorder: ObservableObject {
     private func tick() {
         guard let client else { return }
 
-        // Ha a session modelljét időközben törölték (pl. az előzményekből),
-        // nem szabad hozzányúlni — az érvénytelen modell írása összeomlana.
+        // If the session's model has been deleted in the meantime (for example from
+        // the history), it must not be touched — writing an invalid model would crash.
         if let session = activeSession, session.isDeleted {
             activeSession = nil
             onWorkoutEnded?()
         }
 
-        // Ha a kapcsolat megszakadt (vagy bontottuk), a futó session lezárul.
+        // If the connection dropped (or we disconnected), the running session closes.
         let connected = if case .ready = client.phase { true } else { false }
         if !connected {
             if activeSession != nil { finish() }
@@ -81,7 +82,7 @@ final class SessionRecorder: ObservableObject {
         case .idle, .end:
             if activeSession != nil { finish() }
         default:
-            break // visszaszámlálás, leállás folyamatban stb.
+            break // counting down, stopping in progress, etc.
         }
     }
 
@@ -100,8 +101,8 @@ final class SessionRecorder: ObservableObject {
         heartRateSum = 0
         heartRateCount = 0
         saveCounter = 0
-        // Újracsatlakozásnál a pad számlálói tovább futottak — ami eddig
-        // összegyűlt rajtuk, az nem ehhez a sessionhöz tartozik.
+        // On a reconnect the treadmill's counters kept running — whatever has
+        // accumulated on them so far does not belong to this session.
         distanceBaselineKm = client.state.distanceKm
         padKcalBaseline = client.state.kcal
         lastRawDistanceKm = client.state.distanceKm
@@ -110,12 +111,12 @@ final class SessionRecorder: ObservableObject {
 
     private func record(_ state: TreadmillState) {
         guard let session = activeSession, let context, !session.isDeleted else { return }
-        // Pulzus: a Watch élő adata elsőbbséget élvez a pad kéztartó-szenzorával szemben.
+        // Heart rate: the Watch's live data takes precedence over the treadmill's handlebar sensor.
         let externalHeartRate = externalHeartRateProvider?() ?? 0
         let heartRate = externalHeartRate > 0 ? externalHeartRate : state.heartRate
         if externalHeartRate > 0 { session.watchProvidedHeartRate = true }
 
-        // Ha a pad számlálója nullázódott (új konzol-edzés), új bázist veszünk.
+        // If the treadmill's counter reset (a new console workout), take a new baseline.
         if state.distanceKm < lastRawDistanceKm { distanceBaselineKm = -session.distanceKm }
         if state.kcal < lastRawPadKcal { padKcalBaseline = -session.padKcal }
         lastRawDistanceKm = state.distanceKm
@@ -143,8 +144,8 @@ final class SessionRecorder: ObservableObject {
             session.avgHeartRate = heartRateSum / heartRateCount
             session.maxHeartRate = max(session.maxHeartRate, heartRate)
         }
-        // Programos indításnál a program neve az indulás után is pótolható —
-        // de csak ténylegesen futó programról.
+        // For a program-driven start the program name can still be filled in after
+        // the start — but only from an actually running program.
         if session.programName == nil, let programName = runner?.activeProgramName {
             session.programName = programName
         }

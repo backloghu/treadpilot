@@ -3,31 +3,31 @@
 
 import Foundation
 
-/// Edzésprogram-futtató. Biztonsági alapszabályok:
-/// - a szalag indítását mindig explicit felhasználói megerősítés előzi meg
-///   (álló szalagról indított programnál is: megerősítő dialógus + app-oldali,
-///   megszakítható visszaszámlálás után megy csak ki a start parancs);
-/// - a szegmens-célértékek csak ténylegesen futó szalagra mennek ki;
-/// - ha a felhasználó a konzolon megállítja vagy szünetelteti a gépet,
-///   a program azonnal felfüggesztődik.
+/// Workout program runner. Core safety rules:
+/// - starting the belt is always preceded by an explicit user confirmation (for a
+///   program started from a standing belt too: the start command is only sent after
+///   a confirmation dialog and an app-side, cancellable countdown);
+/// - segment targets are only sent to an actually running belt;
+/// - if the user stops or pauses the machine on the console, the program is
+///   suspended immediately.
 @MainActor
 final class ProgramRunner: ObservableObject {
 
     enum RunnerState: Equatable {
         case idle
-        /// App-oldali visszaszámlálás a felhasználói megerősítés után.
+        /// App-side countdown after the user's confirmation.
         case armed(remaining: Int)
-        /// A start parancs kiment, várjuk, hogy a szalag ténylegesen elinduljon
-        /// (a konzol saját visszaszámlálása is ide esik).
+        /// The start command has been sent; we wait for the belt to actually start
+        /// (the console's own countdown falls in here too).
         case waitingForBelt(elapsed: Int)
         case running(segmentIndex: Int, remaining: TimeInterval)
         case suspended(segmentIndex: Int, remaining: TimeInterval)
         case finished
     }
 
-    /// Az app-oldali visszaszámlálás hossza álló szalagról indításnál.
+    /// The length of the app-side countdown when starting from a standing belt.
     static let armCountdownSeconds = 5
-    /// Ennyi másodperc után adjuk fel, ha a szalag a start parancs után sem indul el.
+    /// We give up after this many seconds if the belt does not start after the start command.
     private static let beltStartTimeout = 30
 
     @Published private(set) var program: WorkoutProgram?
@@ -35,8 +35,8 @@ final class ProgramRunner: ObservableObject {
 
     private weak var client: FitShowTreadmillClient?
     private var timer: Timer?
-    // Egyes konzolok szünet közben is „running" státuszt jelentenek 0
-    // sebességgel — ennyi álló másodperc után felfüggesztünk (#181).
+    // Some consoles report a "running" status with 0 speed even while paused — we
+    // suspend after this many stationary seconds (#181).
     private var zeroSpeedSeconds = 0
     private static let zeroSpeedSuspendThreshold = 3
 
@@ -50,7 +50,7 @@ final class ProgramRunner: ObservableObject {
         }
     }
 
-    /// A következő szakasz, ha van még.
+    /// The next segment, if there is one.
     var nextSegment: WorkoutSegment? {
         guard let program else { return nil }
         switch runnerState {
@@ -61,7 +61,7 @@ final class ProgramRunner: ObservableObject {
         }
     }
 
-    /// A teljes programból hátralévő idő másodpercben.
+    /// The time remaining from the whole program, in seconds.
     var programRemainingSeconds: Int? {
         guard let program else { return nil }
         switch runnerState {
@@ -73,7 +73,7 @@ final class ProgramRunner: ObservableObject {
         }
     }
 
-    /// 0–1 haladás a teljes programban.
+    /// Progress through the whole program, 0–1.
     var programProgress: Double? {
         guard let program, program.totalDuration > 0,
               let remaining = programRemainingSeconds else { return nil }
@@ -94,8 +94,8 @@ final class ProgramRunner: ObservableObject {
         return program.segments.indices.contains(next) ? program.segments[next] : nil
     }
 
-    /// A ténylegesen futó/induló program neve — a .finished/.idle állapotban
-    /// maradt program nem címkézhet fel későbbi kézi edzéseket.
+    /// The name of the actually running/starting program — a program left in the
+    /// .finished/.idle state must not label later manual workouts.
     var activeProgramName: String? {
         switch runnerState {
         case .armed, .waitingForBelt, .running, .suspended:
@@ -105,9 +105,9 @@ final class ProgramRunner: ObservableObject {
         }
     }
 
-    // MARK: - Indítási utak
+    // MARK: - Start paths
 
-    /// Program indítása már futó szalagon: azonnal kezdődik az első szegmens.
+    /// Starting a program on an already running belt: the first segment begins immediately.
     func start(_ program: WorkoutProgram, on client: FitShowTreadmillClient) {
         guard client.state.isRunning, let first = program.segments.first else { return }
         self.program = program
@@ -117,9 +117,9 @@ final class ProgramRunner: ObservableObject {
         startTimer()
     }
 
-    /// Program élesítése álló szalagon — a hívó felelőssége, hogy ezt csak
-    /// felhasználói megerősítés után hívja. Visszaszámlálás után az app maga
-    /// indítja a szalagot az első szegmens célértékeivel.
+    /// Arming a program on a standing belt — it is the caller's responsibility to
+    /// call this only after a user confirmation. After the countdown the app starts
+    /// the belt itself with the first segment's targets.
     func arm(_ program: WorkoutProgram, on client: FitShowTreadmillClient) {
         guard !client.state.isRunning, !program.segments.isEmpty else { return }
         self.program = program
@@ -128,13 +128,13 @@ final class ProgramRunner: ObservableObject {
         startTimer()
     }
 
-    /// Megszakítás a visszaszámlálás vagy a padra várás alatt.
+    /// Cancellation during the countdown or while waiting for the treadmill.
     func cancelArm() {
         switch runnerState {
         case .armed:
-            stop() // start parancs még nem ment ki — a szalag nem indul el
+            stop() // the start command has not been sent yet — the belt will not start
         case .waitingForBelt:
-            client?.requestStop() // a start már kiment: biztos, ami biztos, leállítjuk
+            client?.requestStop() // the start has already been sent: stop it to be safe
             stop()
         default:
             break
@@ -148,7 +148,7 @@ final class ProgramRunner: ObservableObject {
         runnerState = .idle
     }
 
-    // MARK: - Időzítés
+    // MARK: - Timing
 
     private func startTimer() {
         timer?.invalidate()
@@ -179,7 +179,7 @@ final class ProgramRunner: ObservableObject {
                 runnerState = .running(segmentIndex: 0, remaining: first.duration)
                 apply(first)
             } else if elapsed >= Self.beltStartTimeout {
-                stop() // a pad nem indult el — nem parancsolgatunk tovább
+                stop() // the treadmill did not start — stop issuing commands
             } else {
                 runnerState = .waitingForBelt(elapsed: elapsed + 1)
             }
@@ -188,17 +188,17 @@ final class ProgramRunner: ObservableObject {
             guard client.state.isRunning else {
                 zeroSpeedSeconds = 0
                 if client.state.status == .idle || client.state.status == .end {
-                    // A szalag teljesen leállt — a program megszakadt, nem
-                    // szabad egy későbbi kézi indításnál magától folytatódnia.
+                    // The belt stopped completely — the program is aborted and must
+                    // not resume on its own at a later manual start.
                     stop()
                 } else {
-                    // Szünet / leállás folyamatban: felfüggesztés.
+                    // Pause / stop in progress: suspend.
                     runnerState = .suspended(segmentIndex: index, remaining: remaining)
                 }
                 return
             }
-            // „Running" státusz 0 sebességgel = valójában szünetel (#181):
-            // a szakasz-számláló nem mehet tovább.
+            // A "running" status with 0 speed means it is actually paused (#181):
+            // the segment counter must not advance.
             if client.state.speedKmh == 0 {
                 zeroSpeedSeconds += 1
                 if zeroSpeedSeconds >= Self.zeroSpeedSuspendThreshold {
@@ -227,11 +227,11 @@ final class ProgramRunner: ObservableObject {
 
         case .suspended(let index, let remaining):
             if client.state.isRunning && client.state.speedKmh > 0 {
-                // Csak ténylegesen mozgó szalagnál folytatunk (#181).
+                // We only resume on an actually moving belt (#181).
                 runnerState = .running(segmentIndex: index, remaining: remaining)
                 if let segment = currentSegment { apply(segment) }
             } else if client.state.status == .idle || client.state.status == .end {
-                // Szünet helyett teljes leállás lett belőle: a program megszakadt.
+                // It turned into a full stop rather than a pause: the program is aborted.
                 stop()
             }
 

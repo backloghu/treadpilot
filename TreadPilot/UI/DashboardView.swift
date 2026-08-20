@@ -3,9 +3,9 @@
 
 import SwiftUI
 
-/// Edzésképernyő: csak aktív edzésnél (futó/szüneteltetett szalag vagy aktív
-/// program) látszik. A programindítás a kezdőképernyőn történik — itt csak az
-/// élő adatok, a vezérlők és az aktív program állapota van.
+/// Workout screen: shown only during an active workout (a running/paused belt or
+/// an active program). Starting a program happens on the home screen — this screen
+/// holds only live data, the controls and the active program's state.
 struct DashboardView: View {
     let deviceName: String
 
@@ -25,8 +25,8 @@ struct DashboardView: View {
                         .foregroundStyle(Brand.accent)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                // A program mindig felül, jól láthatóan — futás közben ez a
-                // legfontosabb információ.
+                // The program always at the top, clearly visible — it is the most
+                // important information while running.
                 if isProgramActive {
                     programPanel
                 }
@@ -68,7 +68,7 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Fejléc
+    // MARK: - Header
 
     private var statusHeader: some View {
         HStack {
@@ -111,7 +111,7 @@ struct DashboardView: View {
                         in: RoundedRectangle(cornerRadius: Brand.radius))
     }
 
-    // MARK: - Kijelző
+    // MARK: - Readout
 
     private var speedReadout: some View {
         VStack(spacing: 4) {
@@ -136,7 +136,7 @@ struct DashboardView: View {
     @ViewBuilder
     private var statsGrid: some View {
         if isProgramActive {
-            // Kompakt, 3 oszlopos rács, hogy programnál minden egy képernyőn legyen.
+            // A compact 3-column grid so everything fits on one screen with a program.
             Grid(horizontalSpacing: 8, verticalSpacing: 8) {
                 GridRow {
                     compactStat(String(localized: "Time"), formattedTime(client.state.elapsedSeconds))
@@ -161,8 +161,8 @@ struct DashboardView: View {
                     stat(String(localized: "Distance"), String(format: "%.2f km", client.state.distanceKm))
                 }
                 GridRow {
-                    // Aktív edzésnél a saját (testadat-alapú) számítást mutatjuk,
-                    // egyébként a pad nyers értékét.
+                    // During an active workout show our own (body-data based)
+                    // calculation, otherwise the treadmill's raw value.
                     stat(String(localized: "Calories"), kcalText)
                     stat(watchHeartRate.freshHeartRate() > 0
                          ? String(localized: "Heart rate · Watch")
@@ -214,14 +214,14 @@ struct DashboardView: View {
         .brandBox(padding: 14)
     }
 
-    // MARK: - Vezérlők
+    // MARK: - Controls
 
     private var controls: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                // A TÉNYLEGES sebesség dönt, nem a jelentett státusz: egyes
-                // konzolok szünet közben is „running" státuszt jelentenek 0
-                // sebességgel — a FOLYTATÁS-nak ilyenkor is elérhetőnek kell
+                // The ACTUAL speed decides, not the reported status: some consoles
+                // report a "running" status with 0 speed even while paused — RESUME
+                // has to be available in that case too
                 // lennie (#181).
                 if client.state.isRunning && client.state.speedKmh > 0 {
                     Button {
@@ -295,7 +295,7 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Aktív edzésprogram (felül, kompakt sávként)
+    // MARK: - Active workout program (at the top, as a compact bar)
 
     @ViewBuilder
     private var programPanel: some View {
@@ -307,8 +307,8 @@ struct DashboardView: View {
         }
     }
 
-    /// Futó/felfüggesztett program: tömör sáv a képernyő tetején — szakasz,
-    /// NAGY szakasz-visszaszámláló, következő szakasz, haladás, leállítás.
+    /// A running/suspended program: a dense bar at the top of the screen — segment,
+    /// a LARGE segment countdown, the next segment, progress, and stop.
     private func programStrip(segmentIndex: Int, segmentRemaining: TimeInterval) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             if case .suspended = runner.runnerState {
@@ -340,7 +340,7 @@ struct DashboardView: View {
                     }
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 0) {
-                        // A szakasz-visszaszámláló a program lelke — nagyban.
+                        // The segment countdown is the heart of the program — shown large.
                         Text(formattedTime(Int(segmentRemaining)))
                             .font(Brand.display(30, .bold))
                             .foregroundStyle(Brand.accent)
@@ -370,7 +370,7 @@ struct DashboardView: View {
         .brandBox(padding: 12)
     }
 
-    /// Élesítés/padra várás — ugyanitt, felül.
+    /// Arming / waiting for the treadmill — in the same place, at the top.
     private var programArmingPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
             BrandEyebrow(String(localized: "Program"))
@@ -413,8 +413,8 @@ struct DashboardView: View {
                     .buttonStyle(BrandStrokeStyle(color: Brand.danger))
                 }
             case .running, .suspended, .idle, .finished:
-                // Ezeket az állapotokat a programPanel a kompakt sávra
-                // irányítja, ide nem jutnak el.
+                // programPanel routes these states to the compact bar, so they never
+                // reach this point.
                 EmptyView()
             }
         }

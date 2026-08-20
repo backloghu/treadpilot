@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TreadPilot">
-  <!-- A „T" mértani alakzatokból van, nem szövegből: így nem függ attól,
-       hogy a néző gépén elérhető-e a Space Grotesk. -->
+  <!-- The "T" is built from geometric shapes rather than text, so it does not
+       depend on Space Grotesk being available on the viewer's machine. -->
   <rect width="64" height="64" rx="14" fill="#0E0E0C"/>
   <rect x="13" y="17" width="29" height="8" rx="1.5" fill="#FAFAF7"/>
   <rect x="23.5" y="17" width="8" height="31" rx="1.5" fill="#FAFAF7"/>

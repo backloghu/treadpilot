@@ -4,9 +4,9 @@
 import Foundation
 import HealthKit
 
-/// Testadat-profil: HealthKitből olvassuk, app-beli felülírással.
-/// A felülírások UserDefaults-ban tárolódnak; az effektív profil
-/// mezőnként: felülírás → HealthKit-érték → alapértelmezés.
+/// Body-data profile: read from HealthKit, with an in-app override.
+/// Overrides are stored in UserDefaults; the effective profile resolves
+/// per field: override → HealthKit value → default.
 @MainActor
 final class ProfileStore: ObservableObject {
 
@@ -23,8 +23,8 @@ final class ProfileStore: ObservableObject {
 
     private let store = HKHealthStore()
     private let defaults = UserDefaults.standard
-    // A didSet init közben is lefut — betöltés alatt tilos visszaírni,
-    // különben az elsőként betöltött mező kitörölné a többi mentett felülírást.
+    // didSet also runs during init — writing back while loading is forbidden,
+    // otherwise the first field loaded would wipe the other saved overrides.
     private var isLoading = true
 
     init() {
@@ -57,7 +57,7 @@ final class ProfileStore: ObservableObject {
         overrideIsMale = nil
     }
 
-    /// HealthKit-engedély kérése és a testadatok beolvasása.
+    /// Requesting HealthKit permission and reading the body data.
     func refreshFromHealthKit() async {
         guard HKHealthStore.isHealthDataAvailable() else {
             healthKitStatus = String(localized: "Health is not available on this device.")

@@ -4,9 +4,9 @@
 import SwiftData
 import SwiftUI
 
-/// Kezdőképernyő csatlakozás után: innen indul a manuális edzés vagy az
-/// edzésprogram, és itt érhető el a programkezelés, az előzmények, a profil
-/// és a kapcsolat bontása. Az edzésképernyő csak aktív edzésnél látszik.
+/// Home screen after connecting: a manual workout or a workout program starts
+/// from here, and program management, history, the profile and disconnecting are
+/// reachable here. The workout screen is only shown during an active workout.
 struct HomeView: View {
     let deviceName: String
 
@@ -50,7 +50,7 @@ struct HomeView: View {
         .toolbarBackground(Brand.bgDeep, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .onAppear {
-            // A lefutott program maradványa ne éljen tovább a kezdőképernyőn.
+            // Do not let a finished program's leftovers live on on the home screen.
             if case .finished = runner.runnerState { runner.stop() }
         }
         .confirmationDialog("Start the belt?",
@@ -72,8 +72,8 @@ struct HomeView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             if let first = selectedProgram.segments.first {
-                // Egyetlen mondat egyetlen kulcsból: a fordítónak így van
-                // kontextusa, és a szórend nyelvenként szabadon átrendezhető.
+                // One sentence from one key: this gives the translator context,
+                // and the word order can be rearranged freely per language.
                 Text("The belt starts on its own after a \(ProgramRunner.armCountdownSeconds)-second countdown. First segment: \(first.targetSpeedKmh, specifier: "%.1f") km/h at \(first.targetIncline)% incline. \(Safety.standClear)")
             }
         }
@@ -139,8 +139,8 @@ struct HomeView: View {
                 .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
             }
             Text(SessionFormat.duration(Int(selectedProgram.totalDuration))
-                 // A szakaszszám külön kulcs, a String Catalogban plural
-                 // variációval — így nem lesz "1 segments".
+                 // The segment count is a separate key, with a plural variation
+                 // in the String Catalog — so it never reads "1 segments".
                  + " · " + String(localized: "\(selectedProgram.segments.count) segments")
                  + String(format: " · %.2f km", selectedProgram.totalDistanceKm)
                  + String(format: String(localized: " · %.0f m elevation gain"), selectedProgram.totalElevationGainM)

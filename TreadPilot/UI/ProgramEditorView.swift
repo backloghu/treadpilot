@@ -4,13 +4,13 @@
 import SwiftData
 import SwiftUI
 
-/// Egy saját program szerkesztése: név, szegmensek sorrendezése, hozzáadás, törlés.
+/// Editing a custom program: name, segment ordering, adding, deleting.
 struct ProgramEditorView: View {
     @Bindable var program: CustomProgram
     @Environment(\.modelContext) private var context
 
-    /// A szerkesztő a pad alapértelmezett limitjeit használja korlátnak;
-    /// futtatáskor a kliens a tényleges eszköz-limitekre is clampel.
+    /// The editor uses the treadmill's default limits as bounds; when running,
+    /// the client also clamps to the actual device limits.
     private let limits = TreadmillLimits()
 
     var body: some View {
@@ -94,7 +94,7 @@ struct ProgramEditorView: View {
         .onDisappear { try? context.save() }
     }
 
-    /// Élőben frissülő program-összesítés: idő, táv, emelkedés, átlagsebesség.
+    /// Live-updating program totals: duration, distance, elevation, average speed.
     private var summaryRow: some View {
         let workout = program.asWorkoutProgram
         return HStack(spacing: 0) {
@@ -167,7 +167,7 @@ struct ProgramEditorView: View {
     }
 }
 
-/// Egy szegmens értékeinek szerkesztése.
+/// Editing one segment's values.
 struct SegmentEditorView: View {
     @Bindable var segment: CustomSegmentRecord
     let limits: TreadmillLimits

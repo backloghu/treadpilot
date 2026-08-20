@@ -3,7 +3,7 @@
 
 import Foundation
 
-/// Egy edzésprogram-szegmens: adott ideig tartandó cél sebesség és dőlés.
+/// One workout program segment: a target speed and incline to hold for a given time.
 struct WorkoutSegment: Identifiable, Equatable, Hashable {
     var id = UUID()
     var name: String
@@ -22,12 +22,12 @@ struct WorkoutProgram: Identifiable, Equatable, Hashable {
         segments.reduce(0) { $0 + $1.duration }
     }
 
-    /// A program várható össztávja a szakaszok célsebességéből.
+    /// The program's expected total distance, from the segments' target speeds.
     var totalDistanceKm: Double {
         segments.reduce(0) { $0 + $1.duration / 3600 * $1.targetSpeedKmh }
     }
 
-    /// A program várható összes emelkedése (csak a pozitív dőlésű szakaszok).
+    /// The program's expected total elevation gain (positive-incline segments only).
     var totalElevationGainM: Double {
         segments.reduce(0) {
             $0 + ElevationMath.gainPerSecond(speedKmh: $1.targetSpeedKmh,
@@ -35,12 +35,12 @@ struct WorkoutProgram: Identifiable, Equatable, Hashable {
         }
     }
 
-    /// Idővel súlyozott átlagsebesség.
+    /// Time-weighted average speed.
     var averageSpeedKmh: Double {
         totalDuration > 0 ? totalDistanceKm / (totalDuration / 3600) : 0
     }
 
-    /// Beépített bemutató programok az első tesztekhez — szándékosan óvatos sebességekkel.
+    /// Built-in demo programs for the first tests — deliberately cautious speeds.
     static let builtIn: [WorkoutProgram] = [
         WorkoutProgram(name: String(localized: "Gentle test (6 min)"), segments: [
             WorkoutSegment(name: String(localized: "Walk"), duration: 120, targetSpeedKmh: 3.0, targetIncline: 0),

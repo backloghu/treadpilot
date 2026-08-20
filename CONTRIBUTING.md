@@ -96,9 +96,9 @@ the simulator.
   what a physical machine actually sent.
 - **Swift 6 strict concurrency** on the iOS target. The watchOS target stays in
   Swift 5 mode because of the HealthKit delegate patterns.
-- Match the surrounding code style. Comments in the codebase are in Hungarian;
-  new comments may be in English or Hungarian, whichever you are comfortable
-  with — nobody will reject a patch over that.
+- Match the surrounding code style. The codebase is English-only: code,
+  comments, commit messages and documentation. The single exception is the
+  `hu` translations in the String Catalogs.
 - Keep pull requests focused. One concern per PR.
 
 ## Localisation

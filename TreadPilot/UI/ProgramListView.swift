@@ -4,7 +4,7 @@
 import SwiftData
 import SwiftUI
 
-/// Edzésprogramok kezelése: saját programok szerkesztése, beépítettek duplikálása.
+/// Workout program management: editing custom programs, duplicating built-in ones.
 struct ProgramListView: View {
     @Query(sort: \CustomProgram.createdAt) private var customPrograms: [CustomProgram]
     @Environment(\.modelContext) private var context

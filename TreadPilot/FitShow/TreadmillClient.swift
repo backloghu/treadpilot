@@ -4,7 +4,7 @@
 import CoreBluetooth
 import Foundation
 
-/// A pad pillanatnyi, UI-nak szánt állapota.
+/// The treadmill's momentary state, intended for the UI.
 struct TreadmillState: Equatable {
     var status: FitShow.Status = .idle
     var countdownSeconds: Int = 0
@@ -34,14 +34,13 @@ struct DiscoveredTreadmill: Identifiable, Equatable {
     let rssi: Int
 }
 
-/// FitShow-protokollú futópad BLE-kliense.
+/// BLE client for a FitShow-protocol treadmill.
 ///
-/// Működés: csatlakozás után feliratkozik a notify-karakterisztikára, elindítja
-/// a 200 ms-os pollt, és lekéri a sebesség/dőlés-limiteket. Minden parancsot
-/// soros várólistán küld: 200 ms-onként újraküldi, legfeljebb 3 kísérlettel,
-/// és a pad parancs-visszhangjával nyugtáz. A biztonsági szabály a kliens
-/// szintjén is érvényes: a szalag indítását kizárólag explicit felhasználói
-/// művelet válthatja ki.
+/// How it works: after connecting it subscribes to the notify characteristic,
+/// starts the 200 ms poll, and queries the speed/incline limits. Every command is
+/// sent through a serial queue: re-sent every 200 ms, at most 3 attempts, and
+/// acknowledged by the treadmill's command echo. The safety rule holds at the
+/// client level too: only an explicit user action can start the belt.
 @MainActor
 final class FitShowTreadmillClient: NSObject, ObservableObject {
 
@@ -56,7 +55,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var variant: FitShowVariant = .standard
 
-    // A 2019-es Tunturi konzolok hirdetésében megfigyelt szolgáltatások.
+    // The services observed in the 2019 Tunturi consoles' advertisements.
     private static let advertisedServices = [CBUUID(string: "E0FF"), CBUUID(string: "1826")]
     private static let preferredService = CBUUID(string: "FFE0")
     private static let serialServices = [CBUUID(string: "FFE0"), CBUUID(string: "FFF0")]
@@ -86,7 +85,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         central = CBCentralManager(delegate: self, queue: .main)
     }
 
-    // MARK: - Demó mód (csak szimulátorban — a szimulátornak nincs Bluetooth-ja)
+    // MARK: - Demo mode (simulator only — the simulator has no Bluetooth)
 
     private(set) var demoMode = false
     private var demoTimer: Timer?
@@ -115,7 +114,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         phase = .idle
     }
 
-    /// A demó lépésszámláló törtrésze két tick között.
+    /// The fractional part of the demo step counter between two ticks.
     private var demoStepFraction = 0.0
 
     private func demoTick() {
@@ -130,9 +129,9 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             state.elapsedSeconds += 1
             state.distanceKm = ((state.distanceKm + state.speedKmh / 3600) * 1000).rounded() / 1000
             state.kcal = Int(Double(state.elapsedSeconds) * 0.11 * max(1, state.speedKmh / 6))
-            // Valósághű lépésütem: a kadencia sétától futásig nagyjából
-            // 1,7–3,0 lépés/mp, és nem lineárisan nő a sebességgel. Törtrészt
-            // gyűjtünk, különben a másodpercenkénti kerekítés elsodorná.
+            // A realistic step rate: from walking to running, cadence is roughly
+            // 1.7–3.0 steps/s, and does not grow linearly with speed. We accumulate
+            // the fractional part, otherwise per-second rounding would wash it away.
             if state.speedKmh > 0 {
                 demoStepFraction += 1.4 + state.speedKmh * 0.12
                 let whole = demoStepFraction.rounded(.down)
@@ -173,8 +172,8 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             phase = .scanning
             central.scanForPeripherals(withServices: Self.advertisedServices)
         case .unknown, .resetting:
-            // Hidegindításkor a central állapota még .unknown — a poweredOn
-            // megérkezésekor automatikusan elindul a keresés.
+            // On a cold start the central's state is still .unknown — scanning starts
+            // automatically when poweredOn arrives.
             pendingScanRequest = true
         default:
             phase = .bluetoothOff
@@ -192,13 +191,13 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         central.stopScan()
         userWantsConnection = true
         lastError = nil
-        // Új eszköz: a korábbi padtól tanult limitek és célértékek nem érvényesek.
+        // A new device: the limits and targets learned from the previous treadmill do not apply.
         limits = TreadmillLimits()
         targetSpeedKmh = limits.minSpeedKmh
         targetIncline = 0
         targetsDirtyWhileNotRunning = false
         lostConnectionWhileRunning = false
-        // Korábban felismert keret-variáns visszatöltése ehhez az eszközhöz.
+        // Reload the previously detected frame variant for this device.
         if let stored = UserDefaults.standard.string(forKey: Self.variantKey(peripheral.identifier)),
            let storedVariant = FitShowVariant(rawValue: stored) {
             variant = storedVariant
@@ -223,23 +222,23 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         phase = .idle
     }
 
-    // MARK: - Vezérlés (mindet explicit felhasználói művelet hívja)
+    // MARK: - Control (all of these are called by an explicit user action)
 
-    /// A szalag indítása a dashboardról. Csak felhasználói megerősítés után hívható!
+    /// Starting the belt from the dashboard. Only callable after a user confirmation!
     func userConfirmedStart() {
         startBelt(speedKmh: max(limits.minSpeedKmh, targetSpeedKmh), incline: targetIncline)
     }
 
-    /// A szalag indítása adott célértékekkel. Programos indításnál a ProgramRunner
-    /// hívja — kizárólag a felhasználói megerősítés + a megszakítható app-oldali
-    /// visszaszámlálás után.
+    /// Starting the belt with given targets. For a program-driven start ProgramRunner
+    /// calls this — exclusively after the user confirmation plus the cancellable
+    /// app-side countdown.
     func startBelt(speedKmh: Double, incline: Int) {
         targetSpeedKmh = min(max(speedKmh, limits.minSpeedKmh), limits.maxSpeedKmh)
         targetIncline = min(max(incline, limits.minIncline), limits.maxIncline)
         targetsDirtyWhileNotRunning = false
         if demoMode { return demoStart() }
         enqueue(FitShowCommands.start)
-        // A QZ-minta szerint indítás után célértéket is küldünk.
+        // Following the QZ pattern, we also send a target after starting.
         sendCurrentTargets()
     }
 
@@ -264,9 +263,10 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     func setTarget(speedKmh: Double, incline: Int) {
         targetSpeedKmh = min(max(speedKmh, limits.minSpeedKmh), limits.maxSpeedKmh)
         targetIncline = min(max(incline, limits.minIncline), limits.maxIncline)
-        if demoMode { return } // a demó-tick követi a célértékeket
+        if demoMode { return } // the demo tick follows the targets
         guard state.isRunning else {
-            // Álló/visszaszámláló szalagon nem küldünk — futásba váltáskor pótoljuk.
+            // We do not send on a standing/counting-down belt — we catch up on the
+            // transition to running.
             targetsDirtyWhileNotRunning = true
             return
         }
@@ -280,12 +280,12 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         lastTargetCommandAt = Date()
     }
 
-    // MARK: - Parancs-várólista és poll
+    // MARK: - Command queue and poll
 
     private func enqueue(_ payload: [UInt8]) {
-        // Azonos CMD+sub parancsból a még el nem küldöttet lecseréljük (koaleszkálás):
-        // két gyors "+" koppintásból így egyetlen, legfrissebb célérték megy ki,
-        // és a duplikált visszhang sem tud hamisan nyugtázni el nem küldött parancsot.
+        // For the same CMD+sub we replace the not-yet-sent command (coalescing): two
+        // quick "+" taps thus send a single, latest target, and a duplicated echo
+        // cannot falsely acknowledge a command that was never sent.
         if payload.count >= 2,
            let index = pending.firstIndex(where: {
                $0.attempts == 0 && $0.payload.count >= 2
@@ -315,10 +315,10 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     private func tick() {
         guard writeCharacteristic != nil else { return }
 
-        // Adat-frissesség őrzése: futás közben 3 mp-nél régebbi adat gyanús.
+        // Guarding data freshness: while running, data older than 3 s is suspect.
         staleData = state.isRunning && Date().timeIntervalSince(lastFrameAt) > 3
 
-        // Nyugtázatlan parancs 3 küldés után kiesik, hogy ne éheztesse a pollt.
+        // An unacknowledged command drops out after 3 sends so it does not starve the poll.
         if let head = pending.first, head.attempts >= 3 {
             pending.removeFirst()
         }
@@ -337,14 +337,14 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         peripheral.writeValue(FitShowFrame.encode(payload), for: characteristic, type: type)
     }
 
-    // MARK: - Bejövő keretek
+    // MARK: - Incoming frames
 
     private func handleNotification(_ data: Data) {
         guard let payload = FitShowFrame.decode(data) else { return }
         lastFrameAt = Date()
 
-        // Parancs-visszhang nyugtázása: a válasz a küldött CMD(+sub) bájtokkal
-        // kezdődik. Csak már elküldött parancsot lehet nyugtázni.
+        // Acknowledging a command echo: the reply starts with the sent CMD(+sub)
+        // bytes. Only an already sent command can be acknowledged.
         if let head = pending.first,
            head.attempts > 0,
            payload.first == head.payload.first,
@@ -352,9 +352,9 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             pending.removeFirst()
         }
 
-        // Keret-variáns felismerése futó keretekből (AnyRun-konzolok az időt
-        // perc+mp párként, a szavakat big-endianben küldik). Ha megvan,
-        // eszközönként megjegyezzük.
+        // Detecting the frame variant from running frames (AnyRun consoles send time
+        // as a minute+second pair and the words big-endian). Once known, we remember
+        // it per device.
         if !variantLocked,
            payload.count >= 14,
            payload.first == FitShow.Command.sysStatus.rawValue,
@@ -419,17 +419,17 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         "fitshow.variant.\(id.uuidString)"
     }
 
-    /// A cél- és a tényleges értékek összehangolása, hogy egy "+" koppintás mindig
-    /// a valós sebességhez képest lépjen — sose parancsoljon nagy ugrást.
+    /// Reconciling the target and actual values so a "+" tap always steps relative to
+    /// the real speed — never commanding a large jump.
     private func reconcileTargets(with data: RunData, justStarted: Bool) {
         if justStarted && targetsDirtyWhileNotRunning {
-            // A visszaszámlálás/szünet alatt beállított célt futásba váltáskor pótoljuk.
+            // A target set during the countdown/pause is applied on the transition to running.
             targetsDirtyWhileNotRunning = false
             sendCurrentTargets()
             return
         }
-        // Ha régóta nem mi parancsoltunk (konzolról indították/állították),
-        // a cél kövesse a tényleges értékeket.
+        // If we have not commanded for a long time (started/adjusted from the
+        // console), let the target follow the actual values.
         if Date().timeIntervalSince(lastTargetCommandAt) > 10 {
             if abs(targetSpeedKmh - data.speedKmh) >= 0.1, data.speedKmh > 0 {
                 targetSpeedKmh = data.speedKmh
@@ -445,8 +445,8 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         prepTimer?.invalidate()
         phase = .ready(name: name)
         startPolling()
-        // Fontos a sorrend: a startPolling üríti a várólistát, ezért a
-        // limit-lekérdezések csak utána kerülhetnek be.
+        // The order matters: startPolling empties the queue, so the limit queries can
+        // only be enqueued after it.
         enqueue(FitShowCommands.infoSpeed)
         enqueue(FitShowCommands.infoIncline)
         enqueue(FitShowCommands.infoExtended)
@@ -486,8 +486,8 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         phase = .idle
     }
 
-    /// Teljes feltakarítás, amikor a link a delegate-visszahívások nélkül hal meg
-    /// (pl. a Bluetooth kikapcsolása — ilyenkor nincs didDisconnectPeripheral).
+    /// A full cleanup for when the link dies without the delegate callbacks (for
+    /// example Bluetooth being turned off — there is no didDisconnectPeripheral then).
     private func teardownAfterRadioLoss() {
         prepTimer?.invalidate()
         stopPolling()
@@ -504,7 +504,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
 }
 
 // MARK: - CBCentralManagerDelegate / CBPeripheralDelegate
-// A central a main queue-n fut, így a delegate-hívások a MainActorra érkeznek.
+// The central runs on the main queue, so the delegate calls arrive on the MainActor.
 
 extension FitShowTreadmillClient: @preconcurrency CBCentralManagerDelegate {
 
@@ -514,8 +514,9 @@ extension FitShowTreadmillClient: @preconcurrency CBCentralManagerDelegate {
             if phase == .bluetoothOff { phase = .idle }
             if pendingScanRequest { startScan() }
         case .poweredOff, .unauthorized, .unsupported, .resetting:
-            // A rádió leállásakor a rendszer nem küld didDisconnectPeripheral-t,
-            // ezért itt kell feltakarítani (időzítő, karakterisztikák, riasztás).
+            // When the radio goes down the system does not send
+            // didDisconnectPeripheral, so the cleanup has to happen here (timer,
+            // characteristics, alert).
             teardownAfterRadioLoss()
             phase = .bluetoothOff
         default:
@@ -556,7 +557,7 @@ extension FitShowTreadmillClient: @preconcurrency CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager,
                         didDisconnectPeripheral peripheral: CBPeripheral,
                         error: Error?) {
-        // Késve érkező, korábbi eszközhöz tartozó bontás nem nyúlhat az állapothoz.
+        // A late-arriving disconnect belonging to an earlier device must not touch the state.
         guard peripheral.identifier == self.peripheral?.identifier else { return }
         prepTimer?.invalidate()
         stopPolling()
@@ -566,7 +567,7 @@ extension FitShowTreadmillClient: @preconcurrency CBCentralManagerDelegate {
         if state.isRunning { lostConnectionWhileRunning = true }
         state = TreadmillState()
         if userWantsConnection {
-            // A connect() sosem jár le: amint a pad újra elérhető, visszakapcsolódunk.
+            // connect() never expires: as soon as the treadmill is reachable again, we reconnect.
             phase = .connecting(name: peripheral.name ?? String(localized: "Treadmill"))
             central.connect(peripheral)
             startPrepTimeout()
@@ -596,9 +597,9 @@ extension FitShowTreadmillClient: @preconcurrency CBPeripheralDelegate {
                     didDiscoverCharacteristicsFor service: CBService,
                     error: Error?) {
         guard peripheral.identifier == self.peripheral?.identifier, error == nil else { return }
-        // Az író és a notify karakterisztikának ugyanabból a szolgáltatásból kell
-        // jönnie, különben az egyik hídra írnánk, a másikon figyelnénk.
-        // A 0xFFE0 az elsődleges a Tunturiknál; a 0xFFF0 a tartalék.
+        // The write and notify characteristics have to come from the same service,
+        // otherwise we would write to one bridge and listen on the other.
+        // 0xFFE0 is the primary one on Tunturis; 0xFFF0 is the fallback.
         if let chosen = chosenServiceUUID,
            chosen == Self.preferredService || service.uuid != Self.preferredService {
             return
@@ -608,8 +609,8 @@ extension FitShowTreadmillClient: @preconcurrency CBPeripheralDelegate {
               let notify = characteristics.first(where: { Self.notifyCharUUIDs.contains($0.uuid) })
         else { return }
         if let previous = notifyCharacteristic, previous.uuid != notify.uuid {
-            // Váltás a preferált szolgáltatásra: a régi feliratkozást lemondjuk,
-            // hogy ne érkezzen minden keret duplán.
+            // Switching to the preferred service: we cancel the old subscription so
+            // frames do not arrive twice.
             peripheral.setNotifyValue(false, for: previous)
         }
         chosenServiceUUID = service.uuid

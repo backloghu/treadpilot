@@ -2,8 +2,8 @@
    SPDX-License-Identifier: GPL-3.0-or-later
    Copyright (C) 2026 Backlog Fejlesztő Kft.
 
-   Az oldal szándékosan egyetlen, világos arculatot visel (Signal irány),
-   ezért nincs külön sötét paletta — minden szín expliciten festve. */
+   The page deliberately wears a single, light identity (the Signal direction),
+   so there is no separate dark palette — every colour is painted explicitly. */
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
@@ -18,9 +18,9 @@ a { color: inherit; }
 }
 
 /* ============================================================
-   VALÓDI ESZKÖZKERETEK. A képarány a tényleges képernyőkép
-   arányából jön (iPhone 386:840, Apple Watch Ultra 422:514),
-   így a makett nem torzít.
+   REAL DEVICE FRAMES. The aspect ratio comes from the actual screenshot
+   proportions (iPhone 386:840, Apple Watch Ultra 422:514), so the mockup
+   does not distort.
    ============================================================ */
 .dev { flex: none; background: #000; border: 1px solid #FFFFFF2E; box-shadow: 0 30px 70px -32px #000000C7; }
 .dev .screen { position: relative; overflow: hidden; background: #030303; }
@@ -29,37 +29,37 @@ a { color: inherit; }
 .dev-phone .screen { aspect-ratio: 386 / 840; border-radius: 30px; }
 .dev-watch { width: 152px; padding: 6px; border-radius: 38px; }
 .dev-watch .screen { aspect-ratio: 422 / 514; border-radius: 33px; }
-/* Egyetlen állókép (kézikönyv, biztonsági szekció) */
+/* A single still image (the guide, the safety section) */
 .dev.still .screen img { opacity: 1; position: static; height: auto; }
 .dev.still .screen { aspect-ratio: auto; }
 
-/* Négy telefonképernyő egymás után fűzve, 18 mp-es körben */
+/* Four phone screens chained one after another, on an 18 s loop */
 .seq-4 img { animation: seqFade 18s infinite; }
 .seq-4 img:nth-child(1) { animation-delay: 0s; }
 .seq-4 img:nth-child(2) { animation-delay: 4.5s; }
 .seq-4 img:nth-child(3) { animation-delay: 9s; }
 .seq-4 img:nth-child(4) { animation-delay: 13.5s; }
-/* Három óraképernyő, saját ütemben */
+/* Three watch screens, at their own pace */
 .seq-3 img { animation: seqFade3 10.5s infinite; }
 .seq-3 img:nth-child(1) { animation-delay: 0s; }
 .seq-3 img:nth-child(2) { animation-delay: 3.5s; }
 .seq-3 img:nth-child(3) { animation-delay: 7s; }
-/* A képek ÁTFEDVE váltanak: mindegyik addig marad látható, amíg a
-   következő be nem úszik fölé. Rés nélkül — különben fekete villanás. */
+/* The images cross-fade: each stays visible until the next one floats in on
+   top of it. With no gap — otherwise there is a black flash. */
 @keyframes seqFade  { 0% {opacity:0} 2% {opacity:1} 25% {opacity:1} 28% {opacity:0} 100% {opacity:0} }
 @keyframes seqFade3 { 0% {opacity:0} 3% {opacity:1} 33% {opacity:1} 37% {opacity:0} 100% {opacity:0} }
 @media (prefers-reduced-motion: reduce) {
   .seq-4 img, .seq-3 img { animation: none; opacity: 0; }
   .seq-4 img:first-child, .seq-3 img:first-child { opacity: 1; }
 }
-/* Biztonsági szekció: a valódi megerősítő képernyő a szöveg mellett */
+/* Safety section: the real confirmation screen next to the text */
 .safetyrow { display: grid; grid-template-columns: 250px 1fr; gap: 34px; align-items: center; margin-top: 52px; }
 .safetyrow .warn { margin-top: 0; }
 @media (max-width: 900px) { .safetyrow { grid-template-columns: 1fr; justify-items: center; } }
 
-/* A képernyőkép-sor a kézikönyvben. A sötét szekcióban a fekete
-   képernyő beleolvadna a háttérbe, ezért az eszközkeret itt világosabb
-   — így a telefon tárgyként válik le a háttérről, sárga mező nélkül. */
+/* The screenshot row in the guide. In the dark section a black screen would
+   blend into the background, so the device frame is lighter here — that way the
+   phone reads as an object against the background, without a yellow panel. */
 .gshot .dev-phone { width: 100%; max-width: 250px; }
 .guide .dev {
   background: #1B1C20;
@@ -70,8 +70,8 @@ a { color: inherit; }
 
 
 /* ============================================================
-   C — SIGNAL. Plakátszerű, nagy tipográfia, sárga mezők.
-   Fogyasztói hangvétel, App Store-közeli.
+   C — SIGNAL. Poster-like, large typography, yellow panels.
+   A consumer tone, close to the App Store.
    ============================================================ */
 :root {
   --paper: #FAFAF7; --ink: #0E0E0C; --mid: #56564F;
@@ -86,8 +86,9 @@ body {
 h1, h2, h3 { margin: 0; font-family: "Bricolage Grotesque", sans-serif; text-wrap: balance; letter-spacing: -.028em; }
 p { margin: 0; }
 .nav { display: flex; align-items: center; gap: 24px; padding: 22px 0; }
-/* A wordmark az arculati lockup: Space Grotesk, csupa nagybetű, sárga pont.
-   Világos alapon sötét mezőben él, hogy a sárga pont ne mosódjon el. */
+/* The wordmark is the brand lockup: Space Grotesk, all caps, yellow dot.
+   On a light background it sits in a dark panel so the yellow dot does not
+   wash out. */
 .mark {
   font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 15px;
   letter-spacing: .01em; margin-right: auto; color: #FAFAF7;
@@ -111,10 +112,10 @@ p { margin: 0; }
   background: var(--acc); border-radius: 20px; padding: 34px 26px;
   display: flex; gap: 18px; justify-content: center; align-items: flex-end; min-height: 300px;
 }
-/* Asztali elrendezés: a hero két hasábra ül. A bal hasábban egymás alatt
-   a főcím és a szöveg, a jobb hasábot végig az eszközök töltik ki. Így nem
-   marad több száz pixel üresség a cím és a bekezdés között, és nem kell
-   negatív margóval trükközni. */
+/* Desktop layout: the hero sits in two columns. The left column stacks the
+   headline and the copy; the devices fill the right column top to bottom. This
+   avoids leaving several hundred pixels of emptiness between the headline and
+   the paragraph, and avoids tricks with negative margins. */
 @media (min-width: 901px) {
   .hero {
     display: grid;
@@ -138,9 +139,9 @@ p { margin: 0; }
   content: ""; width: 7px; height: 7px; border-radius: 50%;
   background: var(--acc); box-shadow: 0 0 0 1px #0E0E0C1A; flex: none;
 }
-/* Futósáv. A tartalom háromszor szerepel a DOM-ban, és a sáv pontosan
-   egyharmadot tol el — így a hurok ultraszéles kijelzőn sem szakad meg.
-   A második példány aria-hidden, hogy a felolvasó ne mondja el kétszer. */
+/* Marquee. The content appears three times in the DOM and the strip shifts by
+   exactly one third — so the loop does not break even on an ultra-wide display.
+   The second copy is aria-hidden so a screen reader does not read it twice. */
 .marquee {
   background: var(--ink); color: var(--paper); margin-top: 46px;
   padding: 15px 0; overflow: hidden;
@@ -187,7 +188,7 @@ pre .y { color: var(--acc); }
 .kv li { display: flex; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--rule); font-size: 15px; }
 .kv .k { font-weight: 600; width: 150px; flex: none; }
 .kv .v { color: var(--mid); line-height: 1.55; }
-/* Kézikönyv: lépésről lépésre, képernyőképekkel */
+/* The guide: step by step, with screenshots */
 .guide { background: var(--ink); color: #FAFAF7; padding: 84px 0; }
 .guide h2 { color: #FAFAF7; }
 .guide .sub { color: #FAFAF7A6; }
@@ -208,8 +209,9 @@ pre .y { color: var(--acc); }
 }
 
 footer { background: var(--ink); color: #FAFAF7; padding: 56px 0 64px; margin-top: 0; border-top: 1px solid #FAFAF71F; }
-/* Sötét alapon a wordmark csupaszon áll (mint az appban) — a navigáció
-   sötét chipje itt láthatatlan lenne, ezért a hátteret expliciten leszedjük. */
+/* On a dark background the wordmark stands bare (as it does in the app) — the
+   navigation's dark chip would be invisible here, so we remove the background
+   explicitly. */
 footer .mark {
   font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 16px;
   color: #FAFAF7; display: inline-block; margin-bottom: 14px;
@@ -232,7 +234,7 @@ footer .right { margin-left: auto; font-size: 12px; color: #FAFAF780; }
   .steps6 { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* Lábléc közösségi sor */
+/* Footer social row */
 footer .social {
   list-style: none; padding: 0; margin: 18px 0 0;
   display: flex; flex-wrap: wrap; gap: 10px 22px;
@@ -244,8 +246,8 @@ footer .social a {
 footer .social a:hover { border-bottom-color: var(--acc); color: var(--acc); }
 
 /* ============================================================
-   Dokumentum-oldal (adatvédelmi szabályzat). Szűk hasáb, olvasható
-   sorhossz; a fő oldal palettáját és betűit használja.
+   Document page (privacy policy). A narrow column with a readable line
+   length; it uses the main page's palette and typefaces.
    ============================================================ */
 .doc { max-width: 68ch; margin: 26px auto 90px; }
 .doc-back { margin: 0 0 30px; font-size: 14px; }
@@ -274,10 +276,10 @@ footer .social a:hover { border-bottom-color: var(--acc); color: var(--acc); }
 .doc strong { font-weight: 600; color: var(--ink); }
 .doc a { color: var(--ink); text-decoration: none; border-bottom: 2px solid var(--acc); }
 .doc a:hover { background: var(--acc); }
-/* A navigáció wordmarkja itt kattintható link */
+/* Here the navigation wordmark is a clickable link */
 a.mark { text-decoration: none; }
-/* A navigációban a wordmark link is — a `.nav a` szabály különben
-   sötét ink színt adna neki, ami a sötét chipen olvashatatlan. */
+/* In the navigation the wordmark is also a link — otherwise the `.nav a` rule
+   would give it the dark ink colour, which is unreadable on the dark chip. */
 .nav a.mark { color: #FAFAF7; text-decoration: none; }
 .nav a.mark:hover { color: #FAFAF7; }
 .nav a.mark i { color: #FFEB3B; }

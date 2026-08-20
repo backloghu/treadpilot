@@ -3,8 +3,8 @@
 
 import SwiftUI
 
-/// Első indításkor kötelezően megjelenő biztonsági tájékoztató.
-/// Az app valódi futópadot vezérel — enélkül nem engedjük tovább.
+/// Safety notice shown mandatorily on first launch.
+/// The app controls a real treadmill — we do not let the user past this.
 struct DisclaimerView: View {
     let onAccept: () -> Void
 

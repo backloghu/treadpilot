@@ -40,8 +40,8 @@ struct ContentView: View {
                         ToolbarItem(placement: .principal) { BrandWordmark() }
                     }
                 case .ready(let name):
-                    // Aktív edzésnél az edzésképernyő, egyébként a kezdőképernyő
-                    // (manuális/program indítás, programok, előzmények, bontás).
+                    // The workout screen during an active workout, otherwise the home
+                    // screen (manual/program start, programs, history, disconnect).
                     if isWorkoutActive {
                         DashboardView(deviceName: name)
                     } else {
@@ -69,13 +69,13 @@ struct ContentView: View {
                 watchHeartRate?.freshHeartRate() ?? 0
             }
             recorder.onWorkoutEnded = { [weak watchHeartRate] in
-                // A rövid, eldobott edzésnél is le kell zárni a Watch-workoutot.
+                // The Watch workout must be closed even for a short, discarded workout.
                 watchHeartRate?.endWatchWorkout()
             }
         }
         .onReceive(recorder.$activeSession) { session in
-            // A pad edzésének indulásakor a Watch-app is induljon (ha van Watch).
-            // Demó edzés nem indít Watch-workoutot.
+            // When the treadmill workout starts, start the Watch app too (if there
+            // is a Watch). A demo workout does not start a Watch workout.
             guard session != nil, !client.demoMode else { return }
             Task { await watchHeartRate.startWatchWorkout() }
         }
@@ -90,9 +90,9 @@ struct ContentView: View {
                 try? modelContext.save()
             }
         }
-        // A riasztás itt él, nem az edzésképernyőn: kapcsolatvesztéskor a
-        // dashboard kikerül a hierarchiából, de a figyelmeztetésnek pont akkor
-        // kell látszania. Csak a felhasználó nyugtázása zárja be.
+        // The alert lives here rather than on the workout screen: on connection
+        // loss the dashboard leaves the hierarchy, but that is exactly when the
+        // warning has to be visible. Only the user's acknowledgement dismisses it.
         .alert("Connection lost while running!",
                isPresented: $client.lostConnectionWhileRunning) {
             Button("OK", role: .cancel) {}
@@ -101,8 +101,8 @@ struct ContentView: View {
         }
     }
 
-    /// Aktív az edzés, ha a szalag nem áll, vagy a programfuttató dolgozik
-    /// (élesítve / padra várva / fut / felfüggesztve).
+    /// The workout is active if the belt is not stopped, or the program runner is
+    /// working (armed / waiting for the treadmill / running / suspended).
     private var isWorkoutActive: Bool {
         switch runner.runnerState {
         case .armed, .waitingForBelt, .running, .suspended:

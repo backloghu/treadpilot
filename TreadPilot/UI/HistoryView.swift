@@ -6,8 +6,8 @@ import SwiftData
 import SwiftUI
 
 struct HistoryView: View {
-    // Csak a lezárt edzések: az épp futó session nem törölhető/nyitható meg
-    // innen (a rögzítő élő modelljének törlése összeomlást okozna).
+    // Closed workouts only: the session currently running cannot be deleted or
+    // opened from here (deleting the recorder's live model would crash).
     @Query(filter: #Predicate<WorkoutSessionRecord> { $0.endedAt != nil },
            sort: \WorkoutSessionRecord.startedAt, order: .reverse)
     private var sessions: [WorkoutSessionRecord]
@@ -75,7 +75,7 @@ private struct SessionRow: View {
                         .font(.caption2)
                         .foregroundStyle(Brand.accent)
                 } else if !session.isDemo {
-                    // Még nincs a Healthben — a részletnézetből pótolható.
+                    // Not in Health yet — can be completed from the detail view.
                     Image(systemName: "heart")
                         .font(.caption2)
                         .foregroundStyle(Brand.grey)
@@ -114,12 +114,12 @@ struct SessionDetailView: View {
             VStack(alignment: .leading, spacing: 14) {
                 SessionStatsGrid(session: session)
 
-                // Utólagos Health-szinkron: ha az edzés végi mentés nem
-                // sikerült (vagy ki volt kapcsolva), innen bármikor pótolható.
+                // Retroactive Health sync: if the end-of-workout save failed (or
+                // was turned off), it can be completed from here at any time.
                 HealthSyncSection(session: session, showsAutoSaveToggle: false)
 
-                // Hosszú edzésnél ritkított mintasor, hogy a grafikon ne
-                // épüljön több ezer pontból.
+                // For a long workout the sample series is thinned out so the
+                // chart is not built from thousands of points.
                 let samples = downsampled(session.sortedSamples, to: 600)
                 if samples.count > 1 {
                     VStack(alignment: .leading, spacing: 10) {
@@ -179,7 +179,7 @@ struct SessionDetailView: View {
     }
 }
 
-/// Az összefoglaló és a részletnézet közös statisztika-rácsa.
+/// The statistics grid shared by the summary and the detail view.
 struct SessionStatsGrid: View {
     let session: WorkoutSessionRecord
 
@@ -222,7 +222,7 @@ struct SessionStatsGrid: View {
 }
 
 extension WorkoutSessionRecord {
-    /// Amíg nincs saját kalóriaszámítás, a pad értékét mutatjuk.
+    /// Until the app's own calorie calculation is available, show the treadmill's value.
     var displayKcal: Int {
         computedKcal > 0 ? Int(computedKcal.rounded()) : padKcal
     }

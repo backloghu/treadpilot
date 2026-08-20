@@ -4,23 +4,23 @@
 import Foundation
 
 /// FitShow BLE soros keret: `0x02 | CMD | DATA… | FCS | 0x03`,
-/// ahol az FCS a CMD + DATA bájtok XOR-ja. Minden többbájtos érték little-endian.
+/// where FCS is the XOR of the CMD + DATA bytes. Every multi-byte value is little-endian.
 ///
-/// A bejövő kereteket notification-határ szerint kell darabolni: az FCS értéke
-/// legitim módon lehet 0x03 (pl. a 8,0 km/h + 2% parancsnál), ezért a 0x03
-/// bájt keresése hibás keretezési stratégia.
+/// Incoming frames must be split on notification boundaries: the FCS value can
+/// legitimately be 0x03 (for example for the 8.0 km/h + 2% command), so scanning
+/// for the 0x03 byte is a faulty framing strategy.
 enum FitShowFrame {
     static let header: UInt8 = 0x02
     static let footer: UInt8 = 0x03
 
-    /// Keretbe csomagolja a payloadot (CMD + adatbájtok).
+    /// Wraps the payload (CMD + data bytes) into a frame.
     static func encode(_ payload: [UInt8]) -> Data {
         var fcs: UInt8 = 0
         for byte in payload { fcs ^= byte }
         return Data([header] + payload + [fcs, footer])
     }
 
-    /// Egy teljes bejövő notificationt bont ki; érvénytelen keretre nil.
+    /// Unpacks one complete incoming notification; nil for an invalid frame.
     static func decode(_ data: Data) -> [UInt8]? {
         let bytes = [UInt8](data)
         guard bytes.count >= 4,

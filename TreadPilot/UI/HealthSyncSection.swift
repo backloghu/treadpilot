@@ -4,10 +4,10 @@
 import SwiftData
 import SwiftUI
 
-/// Az edzés Health-mentési doboza — az edzés végi összefoglaló és az
-/// előzmények részletnézete közösen használja. Már mentett edzésnél jelzést,
-/// nem mentettnél mentés-gombot mutat, így a sikertelen (vagy kimaradt)
-/// szinkron utólag bármikor pótolható.
+/// The workout's Health-save box — shared by the end-of-workout summary and the
+/// history detail view. For an already saved workout it shows an indicator, for
+/// an unsaved one a save button, so a failed (or missed) sync can be completed
+/// afterwards at any time.
 struct HealthSyncSection: View {
     let session: WorkoutSessionRecord
     var showsAutoSaveToggle = true
@@ -19,8 +19,8 @@ struct HealthSyncSection: View {
         VStack(alignment: .leading, spacing: 12) {
             BrandEyebrow("Apple Health")
 
-            // A session saját jelzői az elsődlegesek — az exporter állapota
-            // csak a folyamatban lévő/sikertelen mentést árnyalja.
+            // The session's own flags take precedence — the exporter's state only
+            // qualifies an in-progress or failed save.
             if session.isDemo {
                 HStack(spacing: 6) {
                     Image(systemName: "play.rectangle")
@@ -65,13 +65,13 @@ struct HealthSyncSection: View {
         }
         .brandBox()
         .onAppear {
-            // Előző edzésből maradt állapot törlése (folyamatban lévőt nem bánt).
+            // Clear state left over from a previous workout (leaves an in-progress one alone).
             if !session.healthKitSynced { exporter.resetState() }
         }
     }
 
-    /// Az exporter globális állapota csak akkor tartozik ide, ha éppen ezt a
-    /// sessiont menti — másik edzés mentése ne látszódjon ebben a dobozban.
+    /// The exporter's global state only belongs here if it is saving this very
+    /// session — saving another workout must not show up in this box.
     private var stateForThisSession: HealthKitExporter.ExportState {
         exporter.currentSessionID == session.persistentModelID ? exporter.state : .idle
     }

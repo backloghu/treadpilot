@@ -19,9 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # A futtatóképek Xcode-verziója változik, ezért nem kötjük ki fixen:
-      # kiválasztjuk a legfrissebb telepítettet. A Swift 6 nyelvi mód miatt
-      # Xcode 16 a minimum.
+      # The Xcode version on the runner images changes, so we do not pin it:
+      # we pick the newest installed one. Xcode 16 is the minimum because of
+      # the Swift 6 language mode.
       - name: Select the newest Xcode
         run: |
           set -euo pipefail
@@ -33,13 +33,14 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      # A .xcodeproj generált és nincs verziókövetve — enélkül nincs mit buildelni.
+      # The .xcodeproj is generated and not version-controlled — without this
+      # there is nothing to build.
       - name: Generate the Xcode project
         run: xcodegen generate
 
-      # A telepített szimulátorok is képfüggők, ezért futásidőben kérdezzük meg.
-      # A simctl runtime szerint növekvő sorrendben listáz, így az utolsó
-      # iPhone a legfrissebb rendszeren fut.
+      # The installed simulators are image-dependent too, so we query them at
+      # run time. simctl lists them in ascending runtime order, so the last
+      # iPhone runs on the newest system.
       - name: Pick an available iPhone simulator
         id: sim
         run: |
@@ -69,7 +70,7 @@ jobs:
             CODE_SIGN_IDENTITY= \
             DEVELOPMENT_TEAM= \
             > xcodebuild.log 2>&1 \
-            || { echo "::error::A build vagy a tesztek elhasaltak"; grep -E 'error:' xcodebuild.log | head -40; tail -60 xcodebuild.log; exit 1; }
+            || { echo "::error::The build or the tests failed"; grep -E 'error:' xcodebuild.log | head -40; tail -60 xcodebuild.log; exit 1; }
           grep -E 'Executed [0-9]+ tests|\*\* TEST' xcodebuild.log | tail -4
 
       - name: Upload the build log on failure

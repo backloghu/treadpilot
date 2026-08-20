@@ -5,9 +5,9 @@ import HealthKit
 import SwiftUI
 import WatchKit
 
-/// Az iPhone `startWatchApp(toHandle:)` hívása ezen a delegate-en keresztül
-/// adja át az edzés-konfigurációt — enélkül a telefonról indított automatikus
-/// Watch-indítás nem működne.
+/// The iPhone's `startWatchApp(toHandle:)` call hands over the workout
+/// configuration through this delegate — without it the automatic Watch start
+/// triggered from the phone would not work.
 final class WatchAppDelegate: NSObject, WKApplicationDelegate {
     func handle(_ workoutConfiguration: HKWorkoutConfiguration) {
         Task { @MainActor in

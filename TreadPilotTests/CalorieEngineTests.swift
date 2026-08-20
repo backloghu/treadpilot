@@ -9,10 +9,10 @@ final class CalorieEngineTests: XCTestCase {
     private let male75 = BodyProfile(weightKg: 75, heightCm: 178, age: 40, isMale: true)
     private let female60 = BodyProfile(weightKg: 60, heightCm: 165, age: 35, isMale: false)
 
-    // MARK: - MET-alapú (ACSM) ág
+    // MARK: - MET-based (ACSM) branch
 
     func testWalkingFlatUsesWalkingEquation() {
-        // 5 km/h, 0%: VO2 = 3,5 + 0,1×83,33 = 11,83 ml/kg/perc → ~4,44 kcal/perc 75 kg-nál.
+        // 5 km/h, 0%: VO2 = 3.5 + 0.1×83.33 = 11.83 ml/kg/min → ~4.44 kcal/min at 75 kg.
         let kcal = CalorieEngine.kcalPerMinute(speedKmh: 5, inclinePercent: 0, profile: male75)
         XCTAssertEqual(kcal, 4.44, accuracy: 0.05)
     }
@@ -35,16 +35,16 @@ final class CalorieEngineTests: XCTestCase {
         XCTAssertEqual(kcal, 1.3125, accuracy: 0.001) // 3,5 × 75 / 1000 × 5
     }
 
-    // MARK: - HR-alapú (Keytel) ág
+    // MARK: - HR-based (Keytel) branch
 
     func testKeytelMale() {
-        // 140 bpm, 75 kg, 40 év: (-55,0969 + 88,326 + 14,91 + 8,068)/4,184 ≈ 13,44.
+        // 140 bpm, 75 kg, age 40: (-55.0969 + 88.326 + 14.91 + 8.068)/4.184 ≈ 13.44.
         let kcal = CalorieEngine.kcalPerMinute(heartRate: 140, profile: male75)
         XCTAssertEqual(kcal, 13.44, accuracy: 0.05)
     }
 
     func testKeytelFemale() {
-        // 140 bpm, 60 kg, 35 év: (-20,4022 + 62,608 - 7,578 + 2,59)/4,184 ≈ 8,90.
+        // 140 bpm, 60 kg, age 35: (-20.4022 + 62.608 - 7.578 + 2.59)/4.184 ≈ 8.90.
         let kcal = CalorieEngine.kcalPerMinute(heartRate: 140, profile: female60)
         XCTAssertEqual(kcal, 8.90, accuracy: 0.05)
     }
@@ -53,7 +53,7 @@ final class CalorieEngineTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(CalorieEngine.kcalPerMinute(heartRate: 40, profile: female60), 0)
     }
 
-    // MARK: - Ág-választás
+    // MARK: - Branch selection
 
     func testSecondIntegrationPrefersHeartRateWhenAvailable() {
         let withHR = CalorieEngine.kcalForSecond(speedKmh: 5, inclinePercent: 0,
@@ -70,10 +70,10 @@ final class CalorieEngineTests: XCTestCase {
                        accuracy: 0.0001)
     }
 
-    // MARK: - Emelkedés (szint fel)
+    // MARK: - Elevation gain
 
     func testElevationGainAtTenPercent() {
-        // 10 km/h @ 10%: 2,7778 m/s × 0,10 = 0,27778 m/mp (≈1000 m/óra).
+        // 10 km/h @ 10%: 2.7778 m/s × 0.10 = 0.27778 m/s (≈1000 m/hour).
         XCTAssertEqual(ElevationMath.gainPerSecond(speedKmh: 10, inclinePercent: 10),
                        0.27778, accuracy: 0.0001)
     }

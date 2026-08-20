@@ -4,7 +4,7 @@
 import Foundation
 import SwiftData
 
-/// Felhasználó által szerkesztett edzésprogram.
+/// A workout program edited by the user.
 @Model
 final class CustomProgram {
     var uuid: UUID
@@ -28,8 +28,8 @@ final class CustomProgram {
         segments.reduce(0) { $0 + $1.durationSeconds }
     }
 
-    /// Futtatható formára alakítás. Az azonosítók a tárolt uuid-k, így a
-    /// dashboard-választó kijelölése stabil marad újrakonvertálás után is.
+    /// Conversion into runnable form. The identifiers are the stored uuids, so
+    /// the dashboard picker's selection stays stable across re-conversion.
     var asWorkoutProgram: WorkoutProgram {
         WorkoutProgram(
             id: uuid,
@@ -46,7 +46,7 @@ final class CustomProgram {
         )
     }
 
-    /// Beépített vagy másik program lemásolása sajáttá.
+    /// Copying a built-in or another program into a custom one.
     static func copy(of program: WorkoutProgram, name: String) -> CustomProgram {
         let custom = CustomProgram(name: name)
         for (index, segment) in program.segments.enumerated() {

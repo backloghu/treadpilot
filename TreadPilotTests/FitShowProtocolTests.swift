@@ -4,15 +4,16 @@
 import XCTest
 @testable import TreadPilot
 
-/// A keretek elvárt bájtsorai a kutatás három egybehangzó forrásából származnak:
-/// FitShow gyártói doksi v1.1, qdomyos-zwift fitshowtreadmill.cpp, tyge68/fitshow-treadmill.
+/// The frames' expected byte sequences come from the three concurring sources of
+/// the research: FitShow vendor documentation v1.1, qdomyos-zwift
+/// fitshowtreadmill.cpp, and tyge68/fitshow-treadmill.
 final class FitShowProtocolTests: XCTestCase {
 
     private func hex(_ string: String) -> Data {
         Data(string.split(separator: " ").map { UInt8($0, radix: 16)! })
     }
 
-    // MARK: - Kódolás
+    // MARK: - Encoding
 
     func testStatusPollFrame() {
         XCTAssertEqual(FitShowFrame.encode(FitShowCommands.statusPoll), hex("02 51 51 03"))
@@ -28,14 +29,14 @@ final class FitShowProtocolTests: XCTestCase {
     }
 
     func testPauseFrame() {
-        // Gyártói CONTROL_PAUSE (0x0A) — a QZ-féle 0x06 a T40-en beragadt (#181).
+        // Vendor CONTROL_PAUSE (0x0A) — QZ's 0x06 got stuck on the T40 (#181).
         XCTAssertEqual(FitShowFrame.encode(FitShowCommands.pause), hex("02 53 0A 59 03"))
     }
 
     func testSetTarget8kmh2Percent() {
         let payload = FitShowCommands.setTarget(speedKmh: 8.0, inclinePercent: 2,
                                                 limits: TreadmillLimits())
-        // Az FCS itt pont 0x03 — ezért tilos a 0x03 bájtra keretezni.
+        // The FCS here happens to be 0x03 — which is why framing on the 0x03 byte is forbidden.
         XCTAssertEqual(FitShowFrame.encode(payload), hex("02 53 02 50 02 03 03"))
     }
 
@@ -57,7 +58,7 @@ final class FitShowProtocolTests: XCTestCase {
     }
 
     func testSetTargetClampsToLimits() {
-        let limits = TreadmillLimits() // T40 alapértelmezés: max 16,0 km/h, dőlés 0–12
+        let limits = TreadmillLimits() // T40 defaults: max 16.0 km/h, incline 0–12
         let tooFast = FitShowCommands.setTarget(speedKmh: 99, inclinePercent: 50, limits: limits)
         XCTAssertEqual(tooFast[2], 160)
         XCTAssertEqual(tooFast[3], 12)
@@ -66,7 +67,7 @@ final class FitShowProtocolTests: XCTestCase {
         XCTAssertEqual(tooSlow[3], 0)
     }
 
-    // MARK: - Dekódolás
+    // MARK: - Decoding
 
     func testDecodeRejectsBadChecksum() {
         XCTAssertNil(FitShowFrame.decode(hex("02 51 50 03")))
@@ -81,11 +82,11 @@ final class FitShowProtocolTests: XCTestCase {
     }
 
     func testParseRunDataFrame() throws {
-        // Példakeret: 8,0 km/h, 2%, 60 mp, 2,0 km, 50 kcal, 150 lépés, 120 bpm.
+        // Example frame: 8.0 km/h, 2%, 60 s, 2.0 km, 50 kcal, 150 steps, 120 bpm.
         let payload = try XCTUnwrap(FitShowFrame.decode(
             hex("02 51 03 50 02 3C 00 14 00 32 00 96 00 78 00 F4 03")))
         guard case .runData(let data) = FitShowParser.parse(payload) else {
-            return XCTFail("runData eseményt vártunk")
+            return XCTFail("expected a runData event")
         }
         XCTAssertEqual(data.status, .running)
         XCTAssertEqual(data.speedKmh, 8.0, accuracy: 0.001)
@@ -97,69 +98,69 @@ final class FitShowProtocolTests: XCTestCase {
         XCTAssertEqual(data.heartRate, 120)
     }
 
-    // MARK: - Lépésszám hihetőség-választás (task #180)
+    // MARK: - Step-count plausibility choice (task #180)
 
     func testStepsByteSwapHealing() {
-        // A T40-en látott hiba: 54 lépés LE-ként küldve, BE-ként olvasva 13824.
+        // The bug seen on the T40: 54 steps sent as LE, read as BE gives 13824.
         XCTAssertEqual(FitShowParser.plausibleSteps(primary: 13824, secondary: 54,
                                                     elapsedSeconds: 30), 54)
-        // Fordított irányban is működik.
+        // It works in the reverse direction too.
         XCTAssertEqual(FitShowParser.plausibleSteps(primary: 54, secondary: 13824,
                                                     elapsedSeconds: 30), 54)
-        // Ha egyik olvasat sem hihető, 0.
+        // If neither reading is plausible, 0.
         XCTAssertEqual(FitShowParser.plausibleSteps(primary: 60000, secondary: 30000,
                                                     elapsedSeconds: 10), 0)
-        // Hosszú edzésnél a nagy érték is hihető.
+        // For a long workout even a large value is plausible.
         XCTAssertEqual(FitShowParser.plausibleSteps(primary: 9000, secondary: 5000,
                                                     elapsedSeconds: 3600), 9000)
     }
 
     func testAnyRunStepsSentLittleEndianAreHealed() throws {
-        // AnyRun-variáns, de a lépésszám LE-ként érkezik (54 = 36 00):
-        // a BE-olvasat (13824) hihetetlen 30 mp-nél → az LE-t választjuk.
+        // The AnyRun variant, but the step count arrives as LE (54 = 36 00):
+        // the BE reading (13824) is implausible at 30 s → we pick the LE one.
         let frame: [UInt8] = [0x51, 0x03, 0x1E, 0x00, 0x00, 0x1E, 0x00, 0x00,
                               0x00, 0x02, 0x36, 0x00, 0x00, 0x00]
         let payload = try XCTUnwrap(FitShowFrame.decode(FitShowFrame.encode(frame)))
         guard case .runData(let data) = FitShowParser.parse(payload, variant: .anyRun) else {
-            return XCTFail("runData eseményt vártunk")
+            return XCTFail("expected a runData event")
         }
         XCTAssertEqual(data.elapsedSeconds, 30)
         XCTAssertEqual(data.steps, 54)
     }
 
     func testParseCountdown() throws {
-        // Visszaszámlálás: státusz 0x02, a következő bájt a hátralévő másodperc.
+        // Countdown: status 0x02, the next byte is the remaining seconds.
         let payload = try XCTUnwrap(FitShowFrame.decode(hex("02 51 02 05 56 03")))
         XCTAssertEqual(FitShowParser.parse(payload), .countdown(seconds: 5))
     }
 
     func testParseNegativeIncline() throws {
-        // Dőlés int8-ként értelmezendő: 0xFF = -1%.
+        // Incline is to be read as int8: 0xFF = -1%.
         var frame: [UInt8] = [0x51, 0x03, 0x50, 0xFF, 0x3C, 0x00, 0x14, 0x00,
                               0x32, 0x00, 0x10, 0x27, 0x78, 0x00]
         let payload = try XCTUnwrap(FitShowFrame.decode(FitShowFrame.encode(frame)))
         guard case .runData(let data) = FitShowParser.parse(payload) else {
-            return XCTFail("runData eseményt vártunk")
+            return XCTFail("expected a runData event")
         }
         XCTAssertEqual(data.inclinePercent, -1)
 
         frame[3] = 0x0C
         let positive = try XCTUnwrap(FitShowFrame.decode(FitShowFrame.encode(frame)))
         guard case .runData(let positiveData) = FitShowParser.parse(positive) else {
-            return XCTFail("runData eseményt vártunk")
+            return XCTFail("expected a runData event")
         }
         XCTAssertEqual(positiveData.inclinePercent, 12)
     }
 
     func testDecodeFrameWhoseChecksumIs0x03() {
-        // Az FCS itt maga is 0x03 — a dekódernek ezt is hibátlanul kell bontania,
-        // bizonyítva, hogy nem a 0x03 bájtot keresi keretzáróként.
+        // Here the FCS is itself 0x03 — the decoder has to unpack this flawlessly too,
+        // proving it does not look for the 0x03 byte as a frame terminator.
         XCTAssertEqual(FitShowFrame.decode(hex("02 53 02 50 02 03 03")),
                        [0x53, 0x02, 0x50, 0x02])
     }
 
     func testParseSignedInclineLimits() throws {
-        // Dőléslimit-válasz: max +12%, min -3% (0xFD int8-ként), pause támogatott (bit1).
+        // Incline-limit reply: max +12%, min -3% (0xFD as int8), pause supported (bit1).
         let payload = try XCTUnwrap(FitShowFrame.decode(
             FitShowFrame.encode([0x50, 0x03, 0x0C, 0xFD, 0x02])))
         XCTAssertEqual(FitShowParser.parse(payload),
@@ -172,14 +173,14 @@ final class FitShowProtocolTests: XCTestCase {
     }
 
     func testBareStatusEchoIsNotIdle() throws {
-        // A saját 02 51 51 03 pollunk visszhangja nem jelentheti azt, hogy a
-        // szalag áll — különben egy visszhangzó konzol hamisan állóra váltana.
+        // The echo of our own 02 51 51 03 poll cannot mean the belt is stopped —
+        // otherwise an echoing console would falsely switch to stopped.
         let payload = try XCTUnwrap(FitShowFrame.decode(hex("02 51 51 03")))
         XCTAssertNotEqual(FitShowParser.parse(payload), .idle)
     }
 
     func testParseSpeedLimits() throws {
-        // SYS_INFO sebesség-válasz: max 160 (16,0 km/h), min 8 (0,8 km/h).
+        // SYS_INFO speed reply: max 160 (16.0 km/h), min 8 (0.8 km/h).
         let payload = try XCTUnwrap(FitShowFrame.decode(
             FitShowFrame.encode([0x50, 0x02, 160, 8, 0])))
         XCTAssertEqual(FitShowParser.parse(payload), .speedLimits(maxRaw: 160, minRaw: 8))
@@ -190,15 +191,15 @@ final class FitShowProtocolTests: XCTestCase {
         XCTAssertEqual(FitShowParser.parse(payload), .inclineUnsupported)
     }
 
-    // MARK: - AnyRun-variáns (a T40 valódi padon megfigyelt viselkedése, task #171)
+    // MARK: - The AnyRun variant (behaviour observed on a real T40, task #171)
 
     func testAnyRunTimeIsMinuteSecondPair() throws {
-        // Idő 2:15 AnyRun-konzolon: payload[4]=2 (perc), payload[5]=15 (mp).
+        // Time 2:15 on an AnyRun console: payload[4]=2 (minutes), payload[5]=15 (seconds).
         let frame: [UInt8] = [0x51, 0x03, 0x50, 0x02, 0x02, 0x0F, 0x00, 0x02,
                               0x00, 0x06, 0x00, 0x64, 0x4E, 0x00]
         let payload = try XCTUnwrap(FitShowFrame.decode(FitShowFrame.encode(frame)))
         guard case .runData(let data) = FitShowParser.parse(payload, variant: .anyRun) else {
-            return XCTFail("runData eseményt vártunk")
+            return XCTFail("expected a runData event")
         }
         XCTAssertEqual(data.elapsedSeconds, 135)
         XCTAssertEqual(data.distanceKm, 0.2, accuracy: 0.001)
@@ -208,14 +209,14 @@ final class FitShowProtocolTests: XCTestCase {
     }
 
     func testUserReportedKcalByteSwap() throws {
-        // A valódi padon látott hiba: 6 kcal big-endianben (00 06) érkezik —
-        // standard (little-endian) értelmezéssel 1536 lett belőle.
+        // The bug seen on the real treadmill: 6 kcal arrives big-endian (00 06) —
+        // with the standard (little-endian) reading it became 1536.
         let frame: [UInt8] = [0x51, 0x03, 0x1E, 0x00, 0x00, 0x0A, 0x00, 0x00,
                               0x00, 0x06, 0x00, 0x00, 0x00, 0x00]
         let payload = try XCTUnwrap(FitShowFrame.decode(FitShowFrame.encode(frame)))
         guard case .runData(let wrong) = FitShowParser.parse(payload, variant: .standard),
               case .runData(let right) = FitShowParser.parse(payload, variant: .anyRun) else {
-            return XCTFail("runData eseményt vártunk")
+            return XCTFail("expected a runData event")
         }
         XCTAssertEqual(wrong.kcal, 1536)
         XCTAssertEqual(right.kcal, 6)
@@ -223,7 +224,7 @@ final class FitShowProtocolTests: XCTestCase {
     }
 
     func testVariantDetectorRecognizesStandard() {
-        // Standardnál a 4. bájt (u16le alsó bájt) lép másodpercenként.
+        // With standard, the 4th byte (the low byte of a u16le) advances every second.
         var detector = FitShowVariantDetector()
         detector.observeRunningFrame([0x51, 0x03, 0x1E, 0x00, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0])
         detector.observeRunningFrame([0x51, 0x03, 0x1E, 0x00, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -231,7 +232,7 @@ final class FitShowProtocolTests: XCTestCase {
     }
 
     func testVariantDetectorRecognizesAnyRun() {
-        // AnyRunnál az 5. bájt (másodperc) lép, a 4. (perc) áll.
+        // With AnyRun the 5th byte (seconds) advances while the 4th (minutes) stays put.
         var detector = FitShowVariantDetector()
         detector.observeRunningFrame([0x51, 0x03, 0x1E, 0x00, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0])
         detector.observeRunningFrame([0x51, 0x03, 0x1E, 0x00, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -239,7 +240,7 @@ final class FitShowProtocolTests: XCTestCase {
     }
 
     func testVariantDetectorSkipsMinuteWrap() {
-        // Perchatárnál mindkét bájt változik — abból nem szabad dönteni.
+        // At a minute boundary both bytes change — no decision may be made from that.
         var detector = FitShowVariantDetector()
         detector.observeRunningFrame([0x51, 0x03, 0x1E, 0x00, 0, 59, 0, 0, 0, 0, 0, 0, 0, 0])
         detector.observeRunningFrame([0x51, 0x03, 0x1E, 0x00, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -249,7 +250,7 @@ final class FitShowProtocolTests: XCTestCase {
     }
 
     func testParseExtendedLimits() throws {
-        // SYS_INFO 0x05 válasz: max 160 (16,0 km/h), min 8, dőlés 0–12.
+        // SYS_INFO 0x05 reply: max 160 (16.0 km/h), min 8, incline 0–12.
         let payload = try XCTUnwrap(FitShowFrame.decode(
             FitShowFrame.encode([0x50, 0x05, 160, 8, 12, 0, 1, 5])))
         XCTAssertEqual(FitShowParser.parse(payload),

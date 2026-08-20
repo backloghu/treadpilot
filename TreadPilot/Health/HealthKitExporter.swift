@@ -5,7 +5,7 @@ import Foundation
 import HealthKit
 import SwiftData
 
-/// Kész edzés mentése az Apple Healthbe HKWorkoutBuilderrel.
+/// Saving a finished workout to Apple Health with HKWorkoutBuilder.
 @MainActor
 final class HealthKitExporter: ObservableObject {
 
@@ -17,10 +17,10 @@ final class HealthKitExporter: ObservableObject {
     }
 
     @Published private(set) var state: ExportState = .idle
-    /// Melyik sessionhöz tartozik a fenti állapot — az utólagos szinkronnál
-    /// több nézet is mutathat Health-dobozt, ne lássák egymás mentését.
+    /// Which session the state above belongs to — with retroactive sync several
+    /// views can show a Health box, and they must not see each other's save.
     @Published private(set) var currentSessionID: PersistentIdentifier?
-    /// Automatikus mentés minden edzés végén.
+    /// Automatic saving at the end of every workout.
     @Published var autoSave: Bool {
         didSet { UserDefaults.standard.set(autoSave, forKey: "health.autosave") }
     }
@@ -32,17 +32,16 @@ final class HealthKitExporter: ObservableObject {
         autoSave = UserDefaults.standard.object(forKey: "health.autosave") as? Bool ?? true
     }
 
-    /// Elavult (előző edzéshez tartozó) állapot törlése — folyamatban lévő
-    /// mentést nem szakít meg.
+    /// Clearing stale state (belonging to a previous workout) — does not
+    /// interrupt a save in progress.
     func resetState() {
         guard !isExporting else { return }
         state = .idle
         currentSessionID = nil
     }
 
-    /// A session mentése. Duplikáció-védelem: már szinkronizált session nem
-    /// kerül be még egyszer. (A jövőbeli Watch-kísérőapp saját workout-mentését
-    /// szintén ez a jelző hangolja majd össze — lásd #165.)
+    /// Saving the session. Duplication guard: an already synced session is not
+    /// written a second time.
     func export(_ session: WorkoutSessionRecord) async {
         guard HKHealthStore.isHealthDataAvailable() else {
             currentSessionID = session.persistentModelID
@@ -54,15 +53,15 @@ final class HealthKitExporter: ObservableObject {
             state = .saved
             return
         }
-        // Demó (szimulált) edzés nem szennyezheti a valódi Health-adatokat.
+        // A demo (simulated) workout must not pollute real Health data.
         guard !session.isDemo else {
             state = .idle
             return
         }
-        // Watch-használatnál is az iPhone ment: a Watch a saját workout-
-        // példányát eldobja (WatchWorkoutManager.finishBuilder), így itt
-        // nincs duplikáció-veszély (#182).
-        // Egyidejű mentés (automatikus + kézi gomb) ellen: egyszerre csak egy.
+        // The iPhone saves even when the Watch is used: the Watch discards its own
+        // workout instance (WatchWorkoutManager.finishBuilder), so there is no risk
+        // of duplication here (#182).
+        // Guard against a concurrent save (automatic + manual button): only one at a time.
         guard !isExporting else { return }
         isExporting = true
         defer { isExporting = false }
@@ -98,8 +97,8 @@ final class HealthKitExporter: ObservableObject {
         do {
             try await builder.beginCollection(at: start)
 
-            // Csak azokat a mintatípusokat írjuk, amikre a felhasználó engedélyt
-            // adott — egy letiltott típus ne buktassa el az egész mentést.
+            // Only write the sample types the user granted permission for — one
+            // denied type must not fail the whole save.
             var samples: [HKSample] = []
             if session.distanceKm > 0,
                store.authorizationStatus(for: distanceType) == .sharingAuthorized {
@@ -117,8 +116,9 @@ final class HealthKitExporter: ObservableObject {
                     start: start, end: end
                 ))
             }
-            // Pulzusminták ritkítva (15 mp-enként), valós időbélyeggel — a
-            // mozgásidő-offset szünetek után elcsúszna a fali órától.
+            // Heart-rate samples thinned out (every 15 s), with wall-clock
+            // timestamps — the moving-time offset would drift from the wall clock
+            // after pauses.
             if store.authorizationStatus(for: heartRateType) == .sharingAuthorized {
                 let bpmUnit = HKUnit.count().unitDivided(by: .minute())
                 for sample in session.sortedSamples

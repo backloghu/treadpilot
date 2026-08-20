@@ -36,8 +36,9 @@ struct WatchContentView: View {
         }
         .task {
             #if DEBUG
-            // Bemutató módban nincs valódi szenzor, így engedélyt sem kérünk
-            // — különben a rendszerdialógus takarná a képernyőképet.
+            // In demo mode there is no real sensor, so we do not ask for
+            // permission either — the system dialog would otherwise cover
+            // the screenshot.
             if workout.startSampleState() { return }
             #endif
             await workout.requestAuthorization()

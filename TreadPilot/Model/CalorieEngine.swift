@@ -3,20 +3,20 @@
 
 import Foundation
 
-/// Testadatok a kalóriaszámításhoz.
+/// Body data for the calorie calculation.
 struct BodyProfile: Equatable {
     var weightKg: Double
     var heightCm: Double
     var age: Int
     var isMale: Bool
 
-    /// Alapértelmezés, ha se HealthKit-adat, se felülírás nincs.
+    /// The default when there is neither HealthKit data nor an override.
     static let fallback = BodyProfile(weightKg: 75, heightCm: 175, age: 40, isMale: true)
 }
 
-/// Emelkedés-számítás a sebességből és a dőlésből: kis szögeknél a
-/// megtett út × dőlés% jó közelítés (10 km/h @ 10% = 1000 m/óra).
-/// Csak a pozitív dőlésen megtett út számít „szint fel"-nek.
+/// Elevation calculation from speed and incline: at small angles, distance
+/// covered × incline% is a good approximation (10 km/h @ 10% = 1000 m/hour).
+/// Only distance covered at a positive incline counts as elevation gain.
 enum ElevationMath {
     static func gainPerSecond(speedKmh: Double, inclinePercent: Int) -> Double {
         guard speedKmh > 0, inclinePercent > 0 else { return 0 }
@@ -24,16 +24,16 @@ enum ElevationMath {
     }
 }
 
-/// Kalóriabecslés. Két üzemmód:
-/// - pulzus birtokában HR-alapú (Keytel és tsai., 2005, J Sports Sci);
-/// - anélkül MET-alapú, az ACSM gyaloglás/futás VO2-egyenleteiből.
+/// Calorie estimation. Two modes:
+/// - with heart rate available, HR-based (Keytel et al., 2005, J Sports Sci);
+/// - without it, MET-based, from the ACSM walking/running VO2 equations.
 enum CalorieEngine {
 
-    /// E fölött a pulzus fölött tekintjük a HR-alapú becslést megbízhatónak
-    /// (a Keytel-képlet edzés-tartományra készült).
+    /// Above this heart rate the HR-based estimate is considered reliable
+    /// (the Keytel formula was built for the exercise range).
     static let heartRateThreshold = 90
 
-    /// kcal/perc pulzus alapján (Keytel: kJ/perc, osztva 4,184-gyel).
+    /// kcal/min from heart rate (Keytel: kJ/min, divided by 4.184).
     static func kcalPerMinute(heartRate: Int, profile: BodyProfile) -> Double {
         let hr = Double(heartRate)
         let kg = profile.weightKg
@@ -44,8 +44,8 @@ enum CalorieEngine {
         return max(0, kjPerMinute / 4.184)
     }
 
-    /// kcal/perc sebesség + dőlés alapján (ACSM: VO2 ml/kg/perc; 1 l O2 ≈ 5 kcal).
-    /// 7,2 km/h alatt a gyaloglás-, fölötte a futás-egyenlet.
+    /// kcal/min from speed + incline (ACSM: VO2 ml/kg/min; 1 l O2 ≈ 5 kcal).
+    /// Below 7.2 km/h the walking equation applies, above it the running one.
     static func kcalPerMinute(speedKmh: Double, inclinePercent: Int, profile: BodyProfile) -> Double {
         guard speedKmh > 0 else { return restingKcalPerMinute(profile) }
         let metersPerMinute = speedKmh * 1000 / 60
@@ -56,12 +56,12 @@ enum CalorieEngine {
         return vo2 * profile.weightKg / 1000 * 5
     }
 
-    /// Nyugalmi égés (1 MET).
+    /// Resting burn (1 MET).
     static func restingKcalPerMinute(_ profile: BodyProfile) -> Double {
         3.5 * profile.weightKg / 1000 * 5
     }
 
-    /// Egy másodpercnyi edzés kalóriája — a rögzítő ezt integrálja.
+    /// The calories for one second of the workout — the recorder integrates this.
     static func kcalForSecond(speedKmh: Double, inclinePercent: Int,
                               heartRate: Int, profile: BodyProfile) -> Double {
         let perMinute = heartRate >= heartRateThreshold

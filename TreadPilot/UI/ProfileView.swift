@@ -3,7 +3,7 @@
 
 import SwiftUI
 
-/// Testadatok a kalóriaszámításhoz: HealthKit-értékek felülírási lehetőséggel.
+/// Body data for the calorie calculation: HealthKit values with the option to override.
 struct ProfileView: View {
     @EnvironmentObject private var profile: ProfileStore
 
@@ -119,7 +119,7 @@ struct ProfileView: View {
         }
     }
 
-    // A stepper mindig az effektív értékből lép, és felülírásként ment.
+    // The stepper always steps from the effective value and saves as an override.
     private var weightBinding: Binding<Double> {
         Binding(get: { profile.effectiveProfile.weightKg },
                 set: { profile.overrideWeightKg = $0 })

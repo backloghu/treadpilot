@@ -7,12 +7,12 @@ import Foundation
 import SwiftData
 import SwiftUI
 
-/// Bemutató mintaadat képernyőképekhez (landing-kézikönyv, App Store).
+/// Demo sample data for screenshots (the landing page guide, the App Store).
 ///
-/// Csak DEBUG buildben létezik, és ott is csak a `-seedSampleData` indítási
-/// kapcsolóval fut le — így éles buildbe nem kerül bele, és fejlesztés közben
-/// sem írja felül senki valódi előzményeit. Ugyanaz a parancs mindig ugyanazt
-/// az állapotot állítja elő, tehát a képernyőképek megismételhetők.
+/// It exists only in a DEBUG build, and even there it only runs with the
+/// `-seedSampleData` launch flag — so it never reaches a release build, and it
+/// does not overwrite anyone's real history during development. The same command
+/// always produces the same state, so the screenshots are reproducible.
 ///
 ///     xcrun simctl launch <udid> hu.backlog.treadpilot -seedSampleData
 enum SampleData {
@@ -21,7 +21,7 @@ enum SampleData {
         CommandLine.arguments.contains("-seedSampleData")
     }
 
-    /// Egy edzés terve: ebből generálódnak a másodperces minták.
+    /// The plan for one workout: the per-second samples are generated from it.
     private struct Plan {
         let daysAgo: Int
         let hour: Int
@@ -34,8 +34,8 @@ enum SampleData {
     }
 
     private static let plans: [Plan] = [
-        // Ma reggel — intervallum, még NEM szinkronizált (az utólagos
-        // Health-mentés bemutatásához).
+        // This morning — intervals, NOT yet synced (to demonstrate the
+        // retroactive Health save).
         Plan(daysAgo: 0, hour: 7, minute: 12, program: "Tuesday intervals",
              segments: intervalSegments(rounds: 5, fast: 11.0, easy: 6.0),
              restingHR: 104, peakHR: 168, synced: false),
@@ -68,7 +68,7 @@ enum SampleData {
         return out
     }
 
-    // MARK: - Feltöltés
+    // MARK: - Seeding
 
     static func seed(into context: ModelContext) {
         wipe(context)
@@ -78,7 +78,7 @@ enum SampleData {
         try? context.save()
     }
 
-    /// Ismételt futtatásnál ne duplikálódjon: a korábbi mintaadat törlődik.
+    /// No duplication on a repeat run: previous sample data is deleted.
     private static func wipe(_ context: ModelContext) {
         try? context.delete(model: WorkoutSampleRecord.self)
         try? context.delete(model: WorkoutSessionRecord.self)
@@ -92,7 +92,7 @@ enum SampleData {
         defaults.set(182.0, forKey: "profile.height")
         defaults.set(41, forKey: "profile.age")
         defaults.set(true, forKey: "profile.isMale")
-        // A nyilatkozat ne takarja el a képernyőképeket.
+        // Keep the disclaimer from covering the screenshots.
         defaults.set(true, forKey: "disclaimer.accepted")
     }
 
@@ -105,8 +105,8 @@ enum SampleData {
         let start = calendar.date(from: components) ?? day
 
         let session = WorkoutSessionRecord(startedAt: start,
-                                           // Általános név: a fejlesztő saját padjának BLE-azonosítója ne
-                                           // kerüljön be a nyilvános repóba és a képernyőképekbe.
+                                           // A generic name: the developer's own treadmill's BLE identifier
+                                           // must not reach the public repository or the screenshots.
                                            deviceName: "SW5010CAI-0000",
                                            programName: plan.program)
         context.insert(session)
@@ -118,8 +118,8 @@ enum SampleData {
         var maxSpeed = 0.0
         var kcal = 0.0
         var hrSum = 0, hrCount = 0, hrMax = 0
-        // A pulzus késleltetve követi a terhelést — enélkül a grafikon
-        // szögletes lenne, és nem úgy nézne ki, mint egy valódi edzés.
+        // Heart rate follows the load with a lag — without that the chart would
+        // be angular and would not look like a real workout.
         var heartRate = Double(plan.restingHR)
 
         for segment in plan.segments {
@@ -136,14 +136,14 @@ enum SampleData {
                 heartRate += (target - heartRate) * 0.045
                 let bpm = Int(heartRate.rounded())
                 hrSum += bpm; hrCount += 1; hrMax = max(hrMax, bpm)
-                // Ugyanúgy integrálva, ahogy a valódi rögzítő teszi.
+                // Integrated the same way the real recorder does it.
                 kcal += CalorieEngine.kcalForSecond(speedKmh: speed,
                                                     inclinePercent: segment.incline,
                                                     heartRate: bpm,
                                                     profile: profile)
 
-                // Ötmásodpercenként mentünk mintát: a grafikonhoz bőven elég,
-                // és nem hizlalja fölöslegesen a mintaadatbázist.
+                // A sample every five seconds: plenty for the chart, and it does
+                // not bloat the sample store needlessly.
                 if second % 5 == 0 {
                     let sample = WorkoutSampleRecord(offsetSeconds: second,
                                                      speedKmh: speed,
@@ -215,8 +215,8 @@ enum SampleData {
     }
 }
 
-/// A feltöltést a nézethierarchia tetejére akasztjuk, hogy ne kelljen a
-/// modellkonténer létrehozásába nyúlni (és kockáztatni a tárhely helyét).
+/// The seeding is hung off the top of the view hierarchy so we do not have to
+/// reach into model container creation (and risk the store's location).
 struct SampleDataSeeder: ViewModifier {
     @Environment(\.modelContext) private var context
     @State private var done = false
