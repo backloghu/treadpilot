@@ -242,3 +242,42 @@ footer .social a {
   text-decoration: none; border-bottom: 1px solid #FFE50066; padding-bottom: 2px;
 }
 footer .social a:hover { border-bottom-color: var(--acc); color: var(--acc); }
+
+/* ============================================================
+   Dokumentum-oldal (adatvédelmi szabályzat). Szűk hasáb, olvasható
+   sorhossz; a fő oldal palettáját és betűit használja.
+   ============================================================ */
+.doc { max-width: 68ch; margin: 26px auto 90px; }
+.doc-back { margin: 0 0 30px; font-size: 14px; }
+.doc-back a { color: var(--mid); text-decoration: none; border-bottom: 1px solid var(--rule); }
+.doc-back a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.doc h1 {
+  font-family: "Bricolage Grotesque", sans-serif; font-weight: 800;
+  font-size: clamp(36px, 5.6vw, 60px); line-height: 1.0;
+  letter-spacing: -.03em; margin: 0;
+}
+.doc-meta {
+  font-size: 14px; color: var(--mid); margin: 14px 0 0;
+}
+.doc-tldr {
+  background: var(--acc); border-radius: 16px;
+  padding: 24px 26px; margin: 32px 0 8px;
+}
+.doc-tldr p { margin: 0; font-size: 17px; line-height: 1.6; color: var(--ink); }
+.doc h2 {
+  font-family: "Bricolage Grotesque", sans-serif; font-weight: 600;
+  font-size: 24px; letter-spacing: -.02em; margin: 44px 0 14px;
+}
+.doc p { font-size: 16.5px; line-height: 1.68; color: #2C2C28; margin: 0 0 14px; }
+.doc ul { margin: 0 0 14px; padding-left: 22px; }
+.doc li { font-size: 16.5px; line-height: 1.62; color: #2C2C28; margin-bottom: 8px; }
+.doc strong { font-weight: 600; color: var(--ink); }
+.doc a { color: var(--ink); text-decoration: none; border-bottom: 2px solid var(--acc); }
+.doc a:hover { background: var(--acc); }
+/* A navigáció wordmarkja itt kattintható link */
+a.mark { text-decoration: none; }
+/* A navigációban a wordmark link is — a `.nav a` szabály különben
+   sötét ink színt adna neki, ami a sötét chipen olvashatatlan. */
+.nav a.mark { color: #FAFAF7; text-decoration: none; }
+.nav a.mark:hover { color: #FAFAF7; }
+.nav a.mark i { color: #FFEB3B; }
