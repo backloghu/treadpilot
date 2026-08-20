@@ -1,0 +1,60 @@
+name: Treadmill compatibility report
+description: Tell us whether TreadPilot works with your treadmill — this is the most useful thing you can contribute.
+title: "[Compatibility] "
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The code is verified against exactly one machine, a Tunturi Competence T40
+        (2019). Every report from a different treadmill widens that — even a report
+        that it does **not** work.
+  - type: input
+    id: model
+    attributes:
+      label: Treadmill make and model
+      placeholder: e.g. Tunturi Competence T40, 2019 (19TRN40000)
+    validations:
+      required: true
+  - type: input
+    id: ble-name
+    attributes:
+      label: Bluetooth name the treadmill advertises
+      description: Visible on the app's scan screen, or in a BLE scanner such as nRF Connect.
+      placeholder: e.g. SW5010CAI-1234
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: What happened
+      options:
+        - Everything works — connect, start, speed and incline
+        - Connects and reads data, but control does not work
+        - Connects, but the numbers are wrong or nonsensical
+        - Does not connect at all
+    validations:
+      required: true
+  - type: textarea
+    id: detail
+    attributes:
+      label: Details
+      description: |
+        Which parts worked, which did not, and anything odd you noticed. If the
+        numbers were wrong, tell us what the app showed and what the console showed.
+    validations:
+      required: true
+  - type: textarea
+    id: frames
+    attributes:
+      label: Protocol frames (optional, very valuable)
+      description: |
+        If you can capture the raw BLE traffic — nRF Connect on the phone, or a
+        sniffer — paste the frames here. This is what lets us add support without
+        owning the machine.
+      render: text
+  - type: input
+    id: versions
+    attributes:
+      label: App version and iOS version
+      placeholder: e.g. TreadPilot 1.0, iOS 18.2

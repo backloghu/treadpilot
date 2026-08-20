@@ -1,5 +1,9 @@
 # TreadPilot ▸
 
+[![CI](https://github.com/backloghu/treadpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/backloghu/treadpilot/actions/workflows/ci.yml)
+[![Licence: GPL v3](https://img.shields.io/badge/licence-GPL--3.0-FFE500)](LICENSE)
+[![treadpilot.app](https://img.shields.io/badge/web-treadpilot.app-0E0E0C)](https://treadpilot.app)
+
 **Control your Bluetooth treadmill from iPhone — structured workouts, live
 metrics, Apple Watch heart rate, Apple Health sync.**
 
@@ -78,6 +82,10 @@ than the Tunturi Competence T40, an FTMS backend, and translations. Start with
 Commits need a `Signed-off-by` line (`git commit -s`), which is how you accept
 the [Contributor Licence Agreement](CLA.md). You keep the copyright to your
 work; the agreement exists so the App Store build stays legally possible.
+
+Also worth reading: the [code of conduct](CODE_OF_CONDUCT.md), and
+[SECURITY.md](SECURITY.md) — which matters more than usual here, because this
+app drives a real motorised belt.
 
 ## Licence
 

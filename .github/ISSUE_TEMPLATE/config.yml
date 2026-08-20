@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or general discussion
+    url: https://github.com/backloghu/treadpilot/discussions
+    about: Ask anything that is not a bug report or a feature request.
+  - name: Security or safety issue
+    url: https://github.com/backloghu/treadpilot/security/policy
+    about: Anything that could make the belt behave unexpectedly — report privately, not here.

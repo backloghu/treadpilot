@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest something the app should do.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before writing code for this, please open the issue first and let's agree
+        on the approach — the safety rules in
+        [CONTRIBUTING.md](https://github.com/backloghu/treadpilot/blob/main/CONTRIBUTING.md)
+        constrain the design in ways that are not obvious from reading the code.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation you are in, not the solution you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: This would not cause the belt to start, speed up, or incline without an explicit user action.
+          required: true

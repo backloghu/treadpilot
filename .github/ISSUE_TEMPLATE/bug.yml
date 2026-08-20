@@ -1,0 +1,60 @@
+name: Bug report
+description: Something in the app behaves incorrectly.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If the bug could affect **safety** — the belt moving when it should not,
+        or the app failing to warn you — please report it privately instead:
+        see [SECURITY.md](https://github.com/backloghu/treadpilot/blob/main/SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Were you using a real treadmill or Demo Mode?
+      options:
+        - A real treadmill
+        - Demo Mode
+        - Both, same result
+    validations:
+      required: true
+  - type: input
+    id: treadmill
+    attributes:
+      label: Treadmill model (if a real one)
+      placeholder: e.g. Tunturi Competence T40, 2019
+  - type: input
+    id: versions
+    attributes:
+      label: App version, iOS version, and Apple Watch (if involved)
+      placeholder: e.g. TreadPilot 1.0, iOS 18.2, Apple Watch Ultra 2 / watchOS 11.2
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, screen recordings, console output.

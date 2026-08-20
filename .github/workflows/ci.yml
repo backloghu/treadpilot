@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A futtatóképek Xcode-verziója változik, ezért nem kötjük ki fixen:
+      # kiválasztjuk a legfrissebb telepítettet. A Swift 6 nyelvi mód miatt
+      # Xcode 16 a minimum.
+      - name: Select the newest Xcode
+        run: |
+          set -euo pipefail
+          NEWEST=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using $NEWEST"
+          sudo xcode-select -s "$NEWEST/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # A .xcodeproj generált és nincs verziókövetve — enélkül nincs mit buildelni.
+      - name: Generate the Xcode project
+        run: xcodegen generate
+
+      # A telepített szimulátorok is képfüggők, ezért futásidőben kérdezzük meg.
+      # A simctl runtime szerint növekvő sorrendben listáz, így az utolsó
+      # iPhone a legfrissebb rendszeren fut.
+      - name: Pick an available iPhone simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          NAME=$(xcrun simctl list devices available \
+                 | grep -E '^[[:space:]]+iPhone' \
+                 | tail -1 \
+                 | sed -E 's/^[[:space:]]*(.+) \([0-9A-Fa-f-]+\) \(.*$/\1/')
+          if [ -z "$NAME" ]; then
+            echo "No iPhone simulator available on this runner:"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "Selected simulator: $NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Run the unit tests
+        run: |
+          set -euo pipefail
+          set -o pipefail
+          xcodebuild test \
+            -project TreadPilot.xcodeproj \
+            -scheme TreadPilot \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY= \
+            DEVELOPMENT_TEAM= \
+            > xcodebuild.log 2>&1 \
+            || { echo "::error::A build vagy a tesztek elhasaltak"; grep -E 'error:' xcodebuild.log | head -40; tail -60 xcodebuild.log; exit 1; }
+          grep -E 'Executed [0-9]+ tests|\*\* TEST' xcodebuild.log | tail -4
+
+      - name: Upload the build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: xcodebuild.log
+          retention-days: 7
