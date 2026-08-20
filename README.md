@@ -4,23 +4,34 @@
 [![Licence: GPL v3](https://img.shields.io/badge/licence-GPL--3.0-FFE500)](LICENSE)
 [![treadpilot.app](https://img.shields.io/badge/web-treadpilot.app-0E0E0C)](https://treadpilot.app)
 
-**Control your Bluetooth treadmill from iPhone — structured workouts, live
-metrics, Apple Watch heart rate, Apple Health sync.**
+**Your treadmill has Bluetooth. You should be able to use it.**
 
-TreadPilot connects to FitShow-protocol treadmills over Bluetooth LE
-(including many Tunturi models such as the Competence/Performance/Endurance
-series) and gives you full control: start/stop, speed and incline, interval
-programs that run like an autopilot, per-second workout recording with
-charts, personalized calorie estimation, and automatic Apple Health export.
-A watchOS companion app streams live heart rate via HKWorkoutSession
-mirroring.
+TreadPilot is a free and open-source iPhone app that controls FitShow-protocol
+treadmills over Bluetooth LE — start and stop the belt, set speed and incline,
+run interval programs that drive the machine for you, watch live metrics, and
+send the finished workout to Apple Health. A watchOS companion streams live
+heart rate.
 
-> ⚠️ **Safety first.** This app drives a real motorized belt. The belt only
+It started with a simple frustration: a Bluetooth-enabled treadmill that could
+technically talk to a phone, but was effectively locked into a small set of
+compatible apps. So we worked out how it talks.
+
+TreadPilot implements the FitShow BLE protocol directly and hands you the
+machine — no account, no cloud service, no tracking, no subscription. The app
+contains no networking code at all; nothing leaves your phone because there is
+nothing to leave through.
+
+Version 1.0 has been submitted to the App Store and is awaiting review. Until
+it lands there, [build it from source](#building). iOS 17+, watchOS 10+.
+
+> ⚠️ **Safety first.** This app drives a real motorised belt. The belt only
 > starts after an explicit in-app confirmation, but you are responsible for
 > safe use: always attach the treadmill's safety key, stand on the side
 > rails when starting, and remember that on a Bluetooth disconnect the belt
 > keeps running at the last set speed — the machine's own Stop button and
-> safety key are the primary protection.
+> safety key are the primary protection. Changes that touch belt control are
+> held to stricter contribution rules; see
+> [CONTRIBUTING.md](CONTRIBUTING.md#safety-rules--these-are-not-negotiable).
 
 ## Features
 
@@ -35,6 +46,22 @@ mirroring.
 - **History** — every workout stored on device (SwiftData) with charts
 - **Apple Health** — automatic workout export (deduplicated with the Watch)
 - **Demo mode** — full UI with a simulated treadmill, no hardware needed
+
+## Why open source?
+
+Reverse-engineering a treadmill protocol is the kind of work that is annoying
+once and pointless twice. So the FitShow implementation lives here in the open,
+with the frame format, the commands and the parsing behaviour documented in the
+source — read it, change it, or lift it for your own project.
+
+It is verified against exactly one machine: a Tunturi Competence T40. Other
+FitShow consoles may speak a compatible dialect, a slightly different one, or
+something else entirely — which makes traces and reports from other models the
+most valuable thing anyone can send. If your treadmill behaves differently from
+what the app displays, we want to know.
+
+This is our first public open-source project. Contributions, bug reports,
+protocol traces, translations and constructive criticism are all welcome.
 
 ## Protocol
 
@@ -70,6 +97,7 @@ Mode on the watch.
 ## Links
 
 - **Website:** <https://treadpilot.app>
+- **Press kit:** <https://treadpilot.app/press>
 - **Facebook:** <https://www.facebook.com/treadpilot>
 - **Issues and discussion:** <https://github.com/backloghu/treadpilot/issues>
 
@@ -86,6 +114,8 @@ work; the agreement exists so the App Store build stays legally possible.
 Also worth reading: the [code of conduct](CODE_OF_CONDUCT.md), and
 [SECURITY.md](SECURITY.md) — which matters more than usual here, because this
 app drives a real motorised belt.
+
+If you own a FitShow treadmill, try it and tell us what happens.
 
 ## Licence
 
