@@ -25,7 +25,8 @@ final class FitShowProtocolTests: XCTestCase {
     }
 
     func testPauseFrame() {
-        XCTAssertEqual(FitShowFrame.encode(FitShowCommands.pause), hex("02 53 06 55 03"))
+        // Gyártói CONTROL_PAUSE (0x0A) — a QZ-féle 0x06 a T40-en beragadt (#181).
+        XCTAssertEqual(FitShowFrame.encode(FitShowCommands.pause), hex("02 53 0A 59 03"))
     }
 
     func testSetTarget8kmh2Percent() {

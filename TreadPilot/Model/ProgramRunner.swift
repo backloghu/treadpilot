@@ -32,6 +32,10 @@ final class ProgramRunner: ObservableObject {
 
     private weak var client: FitShowTreadmillClient?
     private var timer: Timer?
+    // Egyes konzolok szünet közben is „running" státuszt jelentenek 0
+    // sebességgel — ennyi álló másodperc után felfüggesztünk (#181).
+    private var zeroSpeedSeconds = 0
+    private static let zeroSpeedSuspendThreshold = 3
 
     var currentSegment: WorkoutSegment? {
         guard let program else { return nil }
@@ -179,6 +183,7 @@ final class ProgramRunner: ObservableObject {
 
         case .running(let index, let remaining):
             guard client.state.isRunning else {
+                zeroSpeedSeconds = 0
                 if client.state.status == .idle || client.state.status == .end {
                     // A szalag teljesen leállt — a program megszakadt, nem
                     // szabad egy későbbi kézi indításnál magától folytatódnia.
@@ -189,6 +194,17 @@ final class ProgramRunner: ObservableObject {
                 }
                 return
             }
+            // „Running" státusz 0 sebességgel = valójában szünetel (#181):
+            // a szakasz-számláló nem mehet tovább.
+            if client.state.speedKmh == 0 {
+                zeroSpeedSeconds += 1
+                if zeroSpeedSeconds >= Self.zeroSpeedSuspendThreshold {
+                    zeroSpeedSeconds = 0
+                    runnerState = .suspended(segmentIndex: index, remaining: remaining)
+                }
+                return
+            }
+            zeroSpeedSeconds = 0
             let newRemaining = remaining - 1
             if newRemaining > 0 {
                 runnerState = .running(segmentIndex: index, remaining: newRemaining)
@@ -207,7 +223,8 @@ final class ProgramRunner: ObservableObject {
             }
 
         case .suspended(let index, let remaining):
-            if client.state.isRunning {
+            if client.state.isRunning && client.state.speedKmh > 0 {
+                // Csak ténylegesen mozgó szalagnál folytatunk (#181).
                 runnerState = .running(segmentIndex: index, remaining: remaining)
                 if let segment = currentSegment { apply(segment) }
             } else if client.state.status == .idle || client.state.status == .end {

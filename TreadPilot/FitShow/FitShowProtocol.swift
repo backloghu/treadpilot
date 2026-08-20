@@ -114,9 +114,11 @@ enum FitShowCommands {
     static let stop: [UInt8] =
         [FitShow.Command.sysControl.rawValue, FitShow.ControlSub.stop.rawValue]
 
-    /// `02 53 06 55 03` — szünet a QZ-implementáció szerint (lásd ControlSub megjegyzés).
+    /// `02 53 0A 59 03` — szünet a GYÁRTÓI doksi szerint (CONTROL_PAUSE = 0x0A).
+    /// A QZ-féle 0x06 a vendor-táblában státuszkód (safety/disable): a T40-en
+    /// beragadó, nem folytatható állapotot okozott — élő teszt igazolta (#181).
     static let pause: [UInt8] =
-        [FitShow.Command.sysControl.rawValue, FitShow.ControlSub.pauseQZ.rawValue]
+        [FitShow.Command.sysControl.rawValue, FitShow.ControlSub.pauseVendor.rawValue]
 
     /// Sebesség és dőlés egyetlen közös parancs: dőlésváltáshoz az aktuális
     /// sebességet küldjük újra az új dőlésbájttal.
