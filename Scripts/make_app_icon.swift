@@ -5,7 +5,7 @@ import AppKit
 import CoreText
 
 let repoRoot = FileManager.default.currentDirectoryPath
-let fontURL = URL(fileURLWithPath: repoRoot + "/TunturiRun/Resources/Fonts/SpaceGrotesk-Bold.ttf")
+let fontURL = URL(fileURLWithPath: repoRoot + "/TreadPilot/Resources/Fonts/SpaceGrotesk-Bold.ttf")
 guard CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, nil)
         || NSFont(name: "SpaceGrotesk-Bold", size: 10) != nil else {
     fatalError("Nem található a SpaceGrotesk-Bold.ttf — a repo gyökeréből futtasd.")
@@ -61,8 +61,8 @@ guard let png = rep.representation(using: .png, properties: [:]) else {
     fatalError("PNG-kódolás sikertelen.")
 }
 let outputs = [
-    repoRoot + "/TunturiRun/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
-    repoRoot + "/TunturiRunWatch/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+    repoRoot + "/TreadPilot/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+    repoRoot + "/TreadPilotWatch/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
 ]
 for output in outputs {
     try? FileManager.default.createDirectory(atPath: (output as NSString).deletingLastPathComponent,

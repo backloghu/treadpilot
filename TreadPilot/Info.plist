@@ -23,7 +23,7 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>A Bluetooth-hozzáférés a Tunturi futópad csatlakoztatásához, az edzésadatok kiolvasásához és a pad vezérléséhez szükséges.</string>
+	<string>A Bluetooth-hozzáférés a futópad csatlakoztatásához, az edzésadatok kiolvasásához és a pad vezérléséhez szükséges.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>A testadatok (súly, magasság, kor, nem) a pontos kalóriaszámításhoz szükségesek.</string>
 	<key>NSHealthUpdateUsageDescription</key>

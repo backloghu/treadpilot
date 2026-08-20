@@ -14,7 +14,7 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
 }
 
 @main
-struct TunturiRunWatchApp: App {
+struct TreadPilotWatchApp: App {
     @WKApplicationDelegateAdaptor(WatchAppDelegate.self) private var delegate
     @StateObject private var workout = WatchWorkoutManager.shared
 

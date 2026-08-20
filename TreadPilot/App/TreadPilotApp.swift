@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 @main
-struct TunturiRunApp: App {
+struct TreadPilotApp: App {
     @StateObject private var client = FitShowTreadmillClient()
     @StateObject private var runner = ProgramRunner()
     @StateObject private var recorder = SessionRecorder()
