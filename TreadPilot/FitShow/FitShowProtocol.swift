@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Backlog Kft. — https://treadpilot.app
+
 import Foundation
 
 /// A FitShow futópad-protokoll parancsai és állapotkódjai.
