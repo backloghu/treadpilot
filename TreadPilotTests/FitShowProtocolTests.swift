@@ -77,9 +77,9 @@ final class FitShowProtocolTests: XCTestCase {
     }
 
     func testParseRunDataFrame() throws {
-        // Példakeret a kutatásból: 8,0 km/h, 2%, 60 mp, 2,0 km, 50 kcal, 10 000 lépés, 120 bpm.
+        // Példakeret: 8,0 km/h, 2%, 60 mp, 2,0 km, 50 kcal, 150 lépés, 120 bpm.
         let payload = try XCTUnwrap(FitShowFrame.decode(
-            hex("02 51 03 50 02 3C 00 14 00 32 00 10 27 78 00 55 03")))
+            hex("02 51 03 50 02 3C 00 14 00 32 00 96 00 78 00 F4 03")))
         guard case .runData(let data) = FitShowParser.parse(payload) else {
             return XCTFail("runData eseményt vártunk")
         }
@@ -89,8 +89,38 @@ final class FitShowProtocolTests: XCTestCase {
         XCTAssertEqual(data.elapsedSeconds, 60)
         XCTAssertEqual(data.distanceKm, 2.0, accuracy: 0.001)
         XCTAssertEqual(data.kcal, 50)
-        XCTAssertEqual(data.steps, 10000)
+        XCTAssertEqual(data.steps, 150)
         XCTAssertEqual(data.heartRate, 120)
+    }
+
+    // MARK: - Lépésszám hihetőség-választás (task #180)
+
+    func testStepsByteSwapHealing() {
+        // A T40-en látott hiba: 54 lépés LE-ként küldve, BE-ként olvasva 13824.
+        XCTAssertEqual(FitShowParser.plausibleSteps(primary: 13824, secondary: 54,
+                                                    elapsedSeconds: 30), 54)
+        // Fordított irányban is működik.
+        XCTAssertEqual(FitShowParser.plausibleSteps(primary: 54, secondary: 13824,
+                                                    elapsedSeconds: 30), 54)
+        // Ha egyik olvasat sem hihető, 0.
+        XCTAssertEqual(FitShowParser.plausibleSteps(primary: 60000, secondary: 30000,
+                                                    elapsedSeconds: 10), 0)
+        // Hosszú edzésnél a nagy érték is hihető.
+        XCTAssertEqual(FitShowParser.plausibleSteps(primary: 9000, secondary: 5000,
+                                                    elapsedSeconds: 3600), 9000)
+    }
+
+    func testAnyRunStepsSentLittleEndianAreHealed() throws {
+        // AnyRun-variáns, de a lépésszám LE-ként érkezik (54 = 36 00):
+        // a BE-olvasat (13824) hihetetlen 30 mp-nél → az LE-t választjuk.
+        let frame: [UInt8] = [0x51, 0x03, 0x1E, 0x00, 0x00, 0x1E, 0x00, 0x00,
+                              0x00, 0x02, 0x36, 0x00, 0x00, 0x00]
+        let payload = try XCTUnwrap(FitShowFrame.decode(FitShowFrame.encode(frame)))
+        guard case .runData(let data) = FitShowParser.parse(payload, variant: .anyRun) else {
+            return XCTFail("runData eseményt vártunk")
+        }
+        XCTAssertEqual(data.elapsedSeconds, 30)
+        XCTAssertEqual(data.steps, 54)
     }
 
     func testParseCountdown() throws {

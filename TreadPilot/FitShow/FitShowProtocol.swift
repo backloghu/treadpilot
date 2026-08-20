@@ -206,19 +206,28 @@ enum FitShowParser {
         }
         // Teljes futásadat-keret: 02 51 st spd incl idő16 táv16 kcal16 lépés16 HR szegm FCS 03
         if payload.count >= 14, let status {
-            let elapsed: Int, distanceRaw: Int, kcal: Int, steps: Int
+            let elapsed: Int, distanceRaw: Int, kcal: Int
+            let stepsPrimary: Int, stepsSecondary: Int
+            let stepsLE = Int(payload[10]) | (Int(payload[11]) << 8)
+            let stepsBE = Int(payload[11]) | (Int(payload[10]) << 8)
             switch variant {
             case .standard:
                 elapsed = Int(payload[4]) | (Int(payload[5]) << 8)
                 distanceRaw = Int(payload[6]) | (Int(payload[7]) << 8)
                 kcal = Int(payload[8]) | (Int(payload[9]) << 8)
-                steps = Int(payload[10]) | (Int(payload[11]) << 8)
+                stepsPrimary = stepsLE
+                stepsSecondary = stepsBE
             case .anyRun:
                 elapsed = Int(payload[4]) * 60 + Int(payload[5])
                 distanceRaw = Int(payload[7]) | (Int(payload[6]) << 8)
                 kcal = Int(payload[9]) | (Int(payload[8]) << 8)
-                steps = Int(payload[11]) | (Int(payload[10]) << 8)
+                stepsPrimary = stepsBE
+                stepsSecondary = stepsLE
             }
+            // Egyes konzolok a lépésszámot a variánssal ellentétes bájtsorrendben
+            // küldik — a fiziológiailag hihető olvasatot választjuk.
+            let steps = plausibleSteps(primary: stepsPrimary, secondary: stepsSecondary,
+                                       elapsedSeconds: elapsed)
             let data = RunData(
                 status: status,
                 speedKmh: Double(payload[2]) / 10,
@@ -234,6 +243,16 @@ enum FitShowParser {
         }
         if let status { return .statusOnly(status) }
         return .other(command: payload[0], data: Array(payload.dropFirst()))
+    }
+
+    /// Lépésszám hihetőség-választása: futásnál legfeljebb ~5 lépés/mp reális.
+    /// Ha az elsődleges (variáns szerinti) olvasat túl nagy, a bájtcserés
+    /// olvasatot használjuk; ha az sem hihető, 0 (a UI kötőjelet mutat).
+    static func plausibleSteps(primary: Int, secondary: Int, elapsedSeconds: Int) -> Int {
+        let cap = elapsedSeconds * 5 + 90
+        if primary <= cap { return primary }
+        if secondary <= cap { return secondary }
+        return 0
     }
 
     private static func parseInfo(_ payload: [UInt8]) -> FitShowEvent {
