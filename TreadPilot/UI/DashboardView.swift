@@ -44,15 +44,15 @@ struct DashboardView: View {
         }
         .toolbarBackground(Brand.bgDeep, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .confirmationDialog("Folytatod az edzést?",
+        .confirmationDialog("Resume the workout?",
                             isPresented: $showResumeConfirmation,
                             titleVisibility: .visible) {
-            Button("Folytatás \(client.targetSpeedKmh, specifier: "%.1f") km/h sebességgel") {
+            Button("Resume at \(client.targetSpeedKmh, specifier: "%.1f") km/h") {
                 client.userConfirmedStart()
             }
-            Button("Mégse", role: .cancel) {}
+            Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Állj a szalag két szélére, és csíptesd fel a biztonsági kulcsot.")
+            Text(Safety.standClear)
         }
     }
 
@@ -73,14 +73,14 @@ struct DashboardView: View {
             if client.staleData {
                 HStack(spacing: 4) {
                     Image(systemName: "wifi.exclamationmark")
-                    Text("NEM FRISSÜL").tracking(1)
+                    Text("NOT UPDATING").tracking(1)
                 }
                 .font(Brand.display(10, .semibold))
                 .foregroundStyle(Brand.accent)
             }
             Spacer()
             if !client.limits.fromDevice {
-                Text("ALAPÉRTELMEZETT LIMITEK")
+                Text("DEFAULT LIMITS")
                     .font(Brand.display(9, .medium))
                     .tracking(1.2)
                     .foregroundStyle(Brand.grey)
@@ -90,13 +90,13 @@ struct DashboardView: View {
 
     private var statusPill: some View {
         let (text, color): (String, Color) = switch client.state.status {
-        case .running: ("FUT", Brand.accent)
-        case .countdown: ("INDUL: \(client.state.countdownSeconds) MP", Brand.accent)
-        case .paused: ("SZÜNETEL", Brand.fgMid)
-        case .stopping: ("ÁLL LE", Brand.fgMid)
-        case .safety: ("BIZTONSÁGI KULCS!", Brand.danger)
-        case .error: ("HIBA", Brand.danger)
-        default: ("KÉSZENLÉT", Brand.grey)
+        case .running: (String(localized: "RUNNING"), Brand.accent)
+        case .countdown: (String(localized: "STARTING IN \(client.state.countdownSeconds) SEC"), Brand.accent)
+        case .paused: (String(localized: "PAUSED"), Brand.fgMid)
+        case .stopping: (String(localized: "STOPPING"), Brand.fgMid)
+        case .safety: (String(localized: "SAFETY KEY!"), Brand.danger)
+        case .error: (String(localized: "ERROR"), Brand.danger)
+        default: (String(localized: "STANDBY"), Brand.grey)
         }
         return Text(text)
             .font(Brand.display(11, .semibold))
@@ -116,7 +116,7 @@ struct DashboardView: View {
                 .font(Brand.display(isProgramActive ? 60 : 84, .bold))
                 .foregroundStyle(.white)
                 .contentTransition(.numericText())
-            Text("KM/H · DŐLÉS \(client.state.inclinePercent)%")
+            Text("KM/H · INCLINE \(client.state.inclinePercent)%")
                 .font(Brand.display(12, .medium))
                 .tracking(2)
                 .foregroundStyle(Brand.grey)
@@ -136,35 +136,41 @@ struct DashboardView: View {
             // Kompakt, 3 oszlopos rács, hogy programnál minden egy képernyőn legyen.
             Grid(horizontalSpacing: 8, verticalSpacing: 8) {
                 GridRow {
-                    compactStat("Idő", formattedTime(client.state.elapsedSeconds))
-                    compactStat("Táv", String(format: "%.2f km", client.state.distanceKm))
-                    compactStat("Kalória", kcalText)
+                    compactStat(String(localized: "Time"), formattedTime(client.state.elapsedSeconds))
+                    compactStat(String(localized: "Distance"), String(format: "%.2f km", client.state.distanceKm))
+                    compactStat(String(localized: "Calories"), kcalText)
                 }
                 GridRow {
-                    compactStat(watchHeartRate.freshHeartRate() > 0 ? "Pulzus ⌚" : "Pulzus",
+                    compactStat(watchHeartRate.freshHeartRate() > 0
+                                ? String(localized: "Heart rate ⌚")
+                                : String(localized: "Heart rate"),
                                 heartRateText)
-                    compactStat("Szint fel", String(format: "%.0f m",
-                                                    recorder.activeSession?.elevationGainM ?? 0))
-                    compactStat("Lépések", client.state.steps > 0 ? "\(client.state.steps)" : "–")
+                    compactStat(String(localized: "Elevation gain"),
+                                String(format: "%.0f m",
+                                       recorder.activeSession?.elevationGainM ?? 0))
+                    compactStat(String(localized: "Steps"), client.state.steps > 0 ? "\(client.state.steps)" : "–")
                 }
             }
         } else {
             Grid(horizontalSpacing: 10, verticalSpacing: 10) {
                 GridRow {
-                    stat("Idő", formattedTime(client.state.elapsedSeconds))
-                    stat("Táv", String(format: "%.2f km", client.state.distanceKm))
+                    stat(String(localized: "Time"), formattedTime(client.state.elapsedSeconds))
+                    stat(String(localized: "Distance"), String(format: "%.2f km", client.state.distanceKm))
                 }
                 GridRow {
                     // Aktív edzésnél a saját (testadat-alapú) számítást mutatjuk,
                     // egyébként a pad nyers értékét.
-                    stat("Kalória", kcalText)
-                    stat(watchHeartRate.freshHeartRate() > 0 ? "Pulzus · Watch" : "Pulzus",
+                    stat(String(localized: "Calories"), kcalText)
+                    stat(watchHeartRate.freshHeartRate() > 0
+                         ? String(localized: "Heart rate · Watch")
+                         : String(localized: "Heart rate"),
                          heartRateText)
                 }
                 GridRow {
-                    stat("Szint fel", String(format: "%.0f m",
-                                             recorder.activeSession?.elevationGainM ?? 0))
-                    stat("Lépések", client.state.steps > 0 ? "\(client.state.steps)" : "–")
+                    stat(String(localized: "Elevation gain"),
+                         String(format: "%.0f m",
+                                recorder.activeSession?.elevationGainM ?? 0))
+                    stat(String(localized: "Steps"), client.state.steps > 0 ? "\(client.state.steps)" : "–")
                 }
             }
         }
@@ -224,14 +230,14 @@ struct DashboardView: View {
                     Button {
                         client.requestPause()
                     } label: {
-                        HStack { Image(systemName: "pause.fill"); Text("SZÜNET").tracking(1.5) }
+                        HStack { Image(systemName: "pause.fill"); Text("PAUSE").tracking(1.5) }
                     }
                     .buttonStyle(BrandStrokeStyle())
                 } else {
                     Button {
                         showResumeConfirmation = true
                     } label: {
-                        HStack { Image(systemName: "play.fill"); Text("FOLYTATÁS").tracking(1.5) }
+                        HStack { Image(systemName: "play.fill"); Text("RESUME").tracking(1.5) }
                     }
                     .buttonStyle(BrandCTAStyle())
                     .disabled(client.state.status == .countdown)
@@ -245,11 +251,11 @@ struct DashboardView: View {
             }
 
             HStack(spacing: 10) {
-                adjuster(title: "Sebesség",
+                adjuster(title: String(localized: "Speed"),
                          value: String(format: "%.1f", client.targetSpeedKmh),
                          minus: { client.adjustSpeed(by: -0.1) },
                          plus: { client.adjustSpeed(by: 0.1) })
-                adjuster(title: "Dőlés",
+                adjuster(title: String(localized: "Incline"),
                          value: "\(client.targetIncline)%",
                          minus: { client.adjustIncline(by: -1) },
                          plus: { client.adjustIncline(by: 1) })
@@ -305,7 +311,7 @@ struct DashboardView: View {
             if case .suspended = runner.runnerState {
                 HStack(spacing: 6) {
                     Image(systemName: "pause.circle")
-                    Text("FELFÜGGESZTVE — A SZALAG NEM FUT").tracking(1)
+                    Text("SUSPENDED — BELT NOT RUNNING").tracking(1)
                 }
                 .font(Brand.display(10, .semibold))
                 .foregroundStyle(Brand.accent)
@@ -324,7 +330,7 @@ struct DashboardView: View {
                                 .foregroundStyle(Brand.fgDim)
                                 .lineLimit(1)
                         } else {
-                            Text("🏁 Ez az utolsó szakasz")
+                            Text("🏁 Last segment")
                                 .font(.caption)
                                 .foregroundStyle(Brand.fgDim)
                         }
@@ -364,7 +370,7 @@ struct DashboardView: View {
     /// Élesítés/padra várás — ugyanitt, felül.
     private var programArmingPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
-            BrandEyebrow("Edzésprogram")
+            BrandEyebrow(String(localized: "Program"))
 
             switch runner.runnerState {
             case .armed(let remaining):
@@ -374,7 +380,7 @@ struct DashboardView: View {
                         .foregroundStyle(Brand.accent)
                         .contentTransition(.numericText(countsDown: true))
                         .frame(maxWidth: .infinity)
-                    Text("A szalag hamarosan elindul — állj a két szélére, biztonsági kulcs fel!")
+                    Text("The belt starts in a moment. \(Safety.standClear)")
                         .font(.footnote)
                         .foregroundStyle(Brand.fgDim)
                         .frame(maxWidth: .infinity)
@@ -382,7 +388,7 @@ struct DashboardView: View {
                     Button {
                         runner.cancelArm()
                     } label: {
-                        Text("MÉGSE").tracking(1.5)
+                        Text("CANCEL").tracking(1.5)
                     }
                     .buttonStyle(BrandStrokeStyle(color: Brand.danger))
                 }
@@ -390,7 +396,7 @@ struct DashboardView: View {
                 VStack(spacing: 10) {
                     HStack(spacing: 10) {
                         ProgressView().tint(Brand.accent)
-                        Text("A PAD INDUL…")
+                        Text("TREADMILL STARTING…")
                             .font(Brand.display(13, .semibold))
                             .tracking(1.5)
                             .foregroundStyle(Brand.fgMid)
@@ -399,7 +405,7 @@ struct DashboardView: View {
                     Button {
                         runner.cancelArm()
                     } label: {
-                        Text("MÉGSE").tracking(1.5)
+                        Text("CANCEL").tracking(1.5)
                     }
                     .buttonStyle(BrandStrokeStyle(color: Brand.danger))
                 }

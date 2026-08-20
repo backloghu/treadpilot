@@ -21,12 +21,12 @@ struct ContentView: View {
                     VStack(spacing: 20) {
                         ProgressView()
                             .tint(Brand.accent)
-                        Text("CSATLAKOZÁS: \(name.uppercased())…")
+                        Text("CONNECTING: \(name.uppercased())…")
                             .font(Brand.display(12, .medium))
                             .tracking(1.5)
                             .foregroundStyle(Brand.fgDim)
                         Button { client.disconnect() } label: {
-                            Text("MÉGSE").tracking(1.5)
+                            Text("CANCEL").tracking(1.5)
                         }
                         .buttonStyle(BrandStrokeStyle())
                         .frame(width: 160)
@@ -90,12 +90,11 @@ struct ContentView: View {
         // A riasztás itt él, nem az edzésképernyőn: kapcsolatvesztéskor a
         // dashboard kikerül a hierarchiából, de a figyelmeztetésnek pont akkor
         // kell látszania. Csak a felhasználó nyugtázása zárja be.
-        .alert("Megszakadt a kapcsolat futás közben!",
+        .alert("Connection lost while running!",
                isPresented: $client.lostConnectionWhileRunning) {
-            Button("Értem", role: .cancel) {}
+            Button("OK", role: .cancel) {}
         } message: {
-            Text("A szalag az utolsó beállított sebességgel mehet tovább. "
-                 + "Használd a pad Stop gombját vagy a biztonsági kulcsot!")
+            Text(String(localized: "The belt may keep running at the last set speed. Use the treadmill's Stop button or the safety key!"))
         }
     }
 

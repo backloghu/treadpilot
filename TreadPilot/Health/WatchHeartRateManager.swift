@@ -56,7 +56,7 @@ final class WatchHeartRateManager: NSObject, ObservableObject {
             try await store.startWatchApp(toHandle: configuration)
             startError = nil
         } catch {
-            startError = "Watch-indítás sikertelen: \(error.localizedDescription)"
+            startError = String(localized: "Couldn't start the Watch app: \(error.localizedDescription)")
         }
     }
 

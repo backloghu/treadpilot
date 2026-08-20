@@ -57,7 +57,7 @@ final class ProfileStore: ObservableObject {
     /// HealthKit-engedély kérése és a testadatok beolvasása.
     func refreshFromHealthKit() async {
         guard HKHealthStore.isHealthDataAvailable() else {
-            healthKitStatus = "Ezen az eszközön nem érhető el a HealthKit."
+            healthKitStatus = String(localized: "Health is not available on this device.")
             return
         }
         let bodyMass = HKQuantityType(.bodyMass)
@@ -70,7 +70,7 @@ final class ProfileStore: ObservableObject {
         do {
             try await store.requestAuthorization(toShare: [], read: readTypes)
         } catch {
-            healthKitStatus = "A HealthKit-engedély kérése nem sikerült."
+            healthKitStatus = String(localized: "Health permission request failed.")
             return
         }
 
@@ -84,7 +84,7 @@ final class ProfileStore: ObservableObject {
         healthWeightKg = await latestQuantity(of: bodyMass, unit: .gramUnit(with: .kilo))
         healthHeightCm = await latestQuantity(of: height, unit: .meterUnit(with: .centi))
         healthKitStatus = (healthWeightKg == nil && healthAge == nil)
-            ? "A HealthKitben nem található testadat — az app a beállított/alapértelmezett értékeket használja."
+            ? String(localized: "No body data found in Health — the app uses your configured or default values.")
             : nil
     }
 

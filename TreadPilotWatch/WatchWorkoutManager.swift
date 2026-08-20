@@ -48,16 +48,16 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
             session.startActivity(with: start)
             builder.beginCollection(withStart: start) { [weak self] success, error in
                 guard !success, let message = error?.localizedDescription else { return }
-                Task { @MainActor in self?.statusText = "Gyűjtés-hiba: \(message)" }
+                Task { @MainActor in self?.statusText = String(localized: "Couldn't collect workout data: \(message)") }
             }
             session.startMirroringToCompanionDevice { [weak self] success, error in
                 guard !success, let message = error?.localizedDescription else { return }
-                Task { @MainActor in self?.statusText = "Tükrözés-hiba: \(message)" }
+                Task { @MainActor in self?.statusText = String(localized: "Couldn't mirror the workout to your iPhone: \(message)") }
             }
             isActive = true
             statusText = nil
         } catch {
-            statusText = "Nem sikerült elindítani az edzést."
+            statusText = String(localized: "Could not start the workout.")
         }
     }
 
@@ -104,7 +104,7 @@ extension WatchWorkoutManager: HKWorkoutSessionDelegate {
                                     didFailWithError error: Error) {
         let message = error.localizedDescription
         Task { @MainActor in
-            self.statusText = "Edzés-hiba: \(message)"
+            self.statusText = String(localized: "The workout stopped because of an error: \(message)")
             self.isActive = false
         }
     }

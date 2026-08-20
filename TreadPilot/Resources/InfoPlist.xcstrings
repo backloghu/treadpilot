@@ -1,0 +1,57 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSBluetoothAlwaysUsageDescription" : {
+      "comment" : "Bluetooth engedélykérés a futópad csatlakoztatásához",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth access is required to connect to your treadmill, read workout data, and control the belt."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Bluetooth-hozzáférés a futópad csatlakoztatásához, az edzésadatok kiolvasásához és a pad vezérléséhez szükséges."
+          }
+        }
+      }
+    },
+    "NSHealthShareUsageDescription" : {
+      "comment" : "Health olvasási engedély a testadatokhoz",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your body data (weight, height, age, sex) is used to calculate calorie burn accurately."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A testadatok (súly, magasság, kor, nem) a pontos kalóriaszámításhoz szükségesek."
+          }
+        }
+      }
+    },
+    "NSHealthUpdateUsageDescription" : {
+      "comment" : "Health írási engedély az edzések mentéséhez",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving workouts to the Health app keeps your runs and lets you share them with other apps such as Strava."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az edzések mentése az Egészség appba a futások megőrzéséhez és más appokkal (pl. Strava) való megosztásához szükséges."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

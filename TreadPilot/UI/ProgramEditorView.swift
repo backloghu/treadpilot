@@ -13,19 +13,19 @@ struct ProgramEditorView: View {
     var body: some View {
         List {
             Section {
-                TextField("Program neve", text: $program.name)
+                TextField("Program name", text: $program.name)
                     .font(Brand.display(15, .semibold))
                     .foregroundStyle(.white)
                     .listRowBackground(Brand.bgElev1)
             } header: {
-                BrandEyebrow("Név")
+                BrandEyebrow(String(localized: "Name"))
             }
 
             Section {
                 summaryRow
                     .listRowBackground(Brand.bgElev1)
             } header: {
-                BrandEyebrow("Összesítés")
+                BrandEyebrow(String(localized: "Summary"))
             }
 
             Section {
@@ -52,7 +52,7 @@ struct ProgramEditorView: View {
                         Button {
                             duplicate(segment)
                         } label: {
-                            Label("Duplikálás", systemImage: "plus.square.on.square")
+                            Label("Duplicate", systemImage: "plus.square.on.square")
                         }
                     }
                 }
@@ -63,7 +63,7 @@ struct ProgramEditorView: View {
                     addSegment()
                 } label: {
                     Label {
-                        Text("ÚJ SZEGMENS").tracking(1.5).font(Brand.display(13, .semibold))
+                        Text("NEW SEGMENT").tracking(1.5).font(Brand.display(13, .semibold))
                     } icon: {
                         Image(systemName: "plus")
                     }
@@ -71,7 +71,7 @@ struct ProgramEditorView: View {
                 }
                 .listRowBackground(Brand.bgElev1)
             } header: {
-                BrandEyebrow("Szegmensek")
+                BrandEyebrow(String(localized: "Segments"))
             }
         }
         .listStyle(.plain)
@@ -79,7 +79,7 @@ struct ProgramEditorView: View {
         .background(Brand.bgDeep)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("SZERKESZTÉS")
+                Text("EDIT")
                     .font(Brand.display(12, .semibold))
                     .tracking(1.5)
                     .foregroundStyle(Brand.fgMid)
@@ -95,10 +95,10 @@ struct ProgramEditorView: View {
     private var summaryRow: some View {
         let workout = program.asWorkoutProgram
         return HStack(spacing: 0) {
-            summaryCell("Idő", SessionFormat.duration(Int(workout.totalDuration)))
-            summaryCell("Táv", String(format: "%.2f km", workout.totalDistanceKm))
-            summaryCell("Szint", String(format: "%.0f m", workout.totalElevationGainM))
-            summaryCell("Átlag", String(format: "%.1f km/h", workout.averageSpeedKmh))
+            summaryCell(String(localized: "Time"), SessionFormat.duration(Int(workout.totalDuration)))
+            summaryCell(String(localized: "Distance"), String(format: "%.2f km", workout.totalDistanceKm))
+            summaryCell(String(localized: "Elevation gain"), String(format: "%.0f m", workout.totalElevationGainM))
+            summaryCell(String(localized: "Avg"), String(format: "%.1f km/h", workout.averageSpeedKmh))
         }
         .padding(.vertical, 4)
     }
@@ -119,7 +119,7 @@ struct ProgramEditorView: View {
     private func addSegment() {
         let segment = CustomSegmentRecord(
             orderIndex: (program.segments.map(\.orderIndex).max() ?? -1) + 1,
-            name: "Szegmens \(program.segments.count + 1)",
+            name: String(localized: "Segment \(program.segments.count + 1)"),
             durationSeconds: 300,
             targetSpeedKmh: 5.0,
             targetIncline: 0
@@ -132,7 +132,7 @@ struct ProgramEditorView: View {
     private func duplicate(_ segment: CustomSegmentRecord) {
         let copy = CustomSegmentRecord(
             orderIndex: segment.orderIndex,
-            name: segment.name + " (másolat)",
+            name: segment.name + String(localized: " (copy)"),
             durationSeconds: segment.durationSeconds,
             targetSpeedKmh: segment.targetSpeedKmh,
             targetIncline: segment.targetIncline
@@ -173,31 +173,31 @@ struct SegmentEditorView: View {
     var body: some View {
         List {
             Section {
-                TextField("Szegmens neve", text: $segment.name)
+                TextField("Segment name", text: $segment.name)
                     .font(Brand.display(15, .semibold))
                     .foregroundStyle(.white)
                     .listRowBackground(Brand.bgElev1)
             } header: {
-                BrandEyebrow("Név")
+                BrandEyebrow(String(localized: "Name"))
             }
 
             Section {
                 Stepper(value: $segment.durationSeconds, in: 15...7200, step: 15) {
-                    labeled("Időtartam", SessionFormat.duration(segment.durationSeconds))
+                    labeled(String(localized: "Duration"), SessionFormat.duration(segment.durationSeconds))
                 }
                 .listRowBackground(Brand.bgElev1)
                 Stepper(value: $segment.targetSpeedKmh,
                         in: limits.minSpeedKmh...limits.maxSpeedKmh, step: 0.1) {
-                    labeled("Sebesség", String(format: "%.1f km/h", segment.targetSpeedKmh))
+                    labeled(String(localized: "Speed"), String(format: "%.1f km/h", segment.targetSpeedKmh))
                 }
                 .listRowBackground(Brand.bgElev1)
                 Stepper(value: $segment.targetIncline,
                         in: limits.minIncline...limits.maxIncline) {
-                    labeled("Dőlés", "\(segment.targetIncline)%")
+                    labeled(String(localized: "Incline"), "\(segment.targetIncline)%")
                 }
                 .listRowBackground(Brand.bgElev1)
             } header: {
-                BrandEyebrow("Célértékek")
+                BrandEyebrow(String(localized: "Targets"))
             }
         }
         .listStyle(.plain)
@@ -205,7 +205,7 @@ struct SegmentEditorView: View {
         .background(Brand.bgDeep)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("SZEGMENS")
+                Text("SEGMENT")
                     .font(Brand.display(12, .semibold))
                     .tracking(1.5)
                     .foregroundStyle(Brand.fgMid)

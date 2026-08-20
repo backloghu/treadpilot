@@ -39,19 +39,19 @@ struct WorkoutProgram: Identifiable, Equatable, Hashable {
 
     /// Beépített bemutató programok az első tesztekhez — szándékosan óvatos sebességekkel.
     static let builtIn: [WorkoutProgram] = [
-        WorkoutProgram(name: "Óvatos teszt (6 perc)", segments: [
-            WorkoutSegment(name: "Séta", duration: 120, targetSpeedKmh: 3.0, targetIncline: 0),
-            WorkoutSegment(name: "Tempós séta", duration: 120, targetSpeedKmh: 5.0, targetIncline: 1),
-            WorkoutSegment(name: "Levezetés", duration: 120, targetSpeedKmh: 3.0, targetIncline: 0),
+        WorkoutProgram(name: String(localized: "Gentle test (6 min)"), segments: [
+            WorkoutSegment(name: String(localized: "Walk"), duration: 120, targetSpeedKmh: 3.0, targetIncline: 0),
+            WorkoutSegment(name: String(localized: "Brisk walk"), duration: 120, targetSpeedKmh: 5.0, targetIncline: 1),
+            WorkoutSegment(name: String(localized: "Cool-down"), duration: 120, targetSpeedKmh: 3.0, targetIncline: 0),
         ], isBuiltIn: true),
-        WorkoutProgram(name: "Intervall 5×(1+1) perc", segments: [
-            WorkoutSegment(name: "Bemelegítés", duration: 180, targetSpeedKmh: 5.0, targetIncline: 0)
+        WorkoutProgram(name: String(localized: "Intervals 5×(1+1) min"), segments: [
+            WorkoutSegment(name: String(localized: "Warm-up"), duration: 180, targetSpeedKmh: 5.0, targetIncline: 0)
         ]
         + (1...5).flatMap { round in [
-            WorkoutSegment(name: "Gyors \(round)", duration: 60, targetSpeedKmh: 9.0, targetIncline: 0),
-            WorkoutSegment(name: "Pihenő \(round)", duration: 60, targetSpeedKmh: 6.0, targetIncline: 0),
+            WorkoutSegment(name: String(localized: "Fast \(round)"), duration: 60, targetSpeedKmh: 9.0, targetIncline: 0),
+            WorkoutSegment(name: String(localized: "Recovery \(round)"), duration: 60, targetSpeedKmh: 6.0, targetIncline: 0),
         ]}
-        + [WorkoutSegment(name: "Levezetés", duration: 180, targetSpeedKmh: 4.5, targetIncline: 0)],
+        + [WorkoutSegment(name: String(localized: "Cool-down"), duration: 180, targetSpeedKmh: 4.5, targetIncline: 0)],
         isBuiltIn: true),
     ]
 }

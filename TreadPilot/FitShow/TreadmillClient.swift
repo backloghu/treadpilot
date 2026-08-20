@@ -95,7 +95,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         limits = TreadmillLimits()
         targetSpeedKmh = limits.minSpeedKmh
         targetIncline = 0
-        phase = .ready(name: "Demó pad (szimulált)")
+        phase = .ready(name: String(localized: "Demo treadmill (simulated)"))
         demoTimer?.invalidate()
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.demoTick() }
@@ -195,7 +195,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             variantDetector = FitShowVariantDetector()
         }
         self.peripheral = peripheral
-        phase = .connecting(name: peripheral.name ?? "Futópad")
+        phase = .connecting(name: peripheral.name ?? String(localized: "Treadmill"))
         central.connect(peripheral)
         startPrepTimeout()
     }
@@ -452,9 +452,9 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     private func preparationTimedOut() {
         switch phase {
         case .connecting:
-            failPreparation("Nem sikerült csatlakozni az eszközhöz.")
+            failPreparation(String(localized: "Couldn't connect to the device."))
         case .preparing:
-            failPreparation("Az eszköz nem válaszol — lehet, hogy nem FitShow-konzol.")
+            failPreparation(String(localized: "The device isn't responding — it may not be a FitShow console."))
         default:
             break
         }
@@ -516,7 +516,7 @@ extension FitShowTreadmillClient: @preconcurrency CBCentralManagerDelegate {
         peripheralsById[peripheral.identifier] = peripheral
         let name = peripheral.name
             ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String
-            ?? "Ismeretlen eszköz"
+            ?? String(localized: "Unknown device")
         let item = DiscoveredTreadmill(id: peripheral.identifier, name: name, rssi: RSSI.intValue)
         if let index = discovered.firstIndex(where: { $0.id == item.id }) {
             discovered[index] = item
@@ -527,7 +527,7 @@ extension FitShowTreadmillClient: @preconcurrency CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         guard peripheral.identifier == self.peripheral?.identifier else { return }
-        phase = .preparing(name: peripheral.name ?? "Futópad")
+        phase = .preparing(name: peripheral.name ?? String(localized: "Treadmill"))
         peripheral.delegate = self
         peripheral.discoverServices(Self.serialServices)
     }
@@ -536,7 +536,7 @@ extension FitShowTreadmillClient: @preconcurrency CBCentralManagerDelegate {
                         didFailToConnect peripheral: CBPeripheral,
                         error: Error?) {
         guard peripheral.identifier == self.peripheral?.identifier else { return }
-        failPreparation("Nem sikerült csatlakozni az eszközhöz.")
+        failPreparation(String(localized: "Couldn't connect to the device."))
     }
 
     func centralManager(_ central: CBCentralManager,
@@ -553,7 +553,7 @@ extension FitShowTreadmillClient: @preconcurrency CBCentralManagerDelegate {
         state = TreadmillState()
         if userWantsConnection {
             // A connect() sosem jár le: amint a pad újra elérhető, visszakapcsolódunk.
-            phase = .connecting(name: peripheral.name ?? "Futópad")
+            phase = .connecting(name: peripheral.name ?? String(localized: "Treadmill"))
             central.connect(peripheral)
             startPrepTimeout()
         } else {
@@ -567,11 +567,11 @@ extension FitShowTreadmillClient: @preconcurrency CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard peripheral.identifier == self.peripheral?.identifier else { return }
         guard error == nil else {
-            return failPreparation("Szolgáltatás-felderítési hiba.")
+            return failPreparation(String(localized: "Service discovery error."))
         }
         let serialServices = (peripheral.services ?? []).filter { Self.serialServices.contains($0.uuid) }
         guard !serialServices.isEmpty else {
-            return failPreparation("Az eszköz nem FitShow-protokollú (nincs soros szolgáltatás).")
+            return failPreparation(String(localized: "This device doesn't use the FitShow protocol (no serial service)."))
         }
         for service in serialServices {
             peripheral.discoverCharacteristics(Self.writeCharUUIDs + Self.notifyCharUUIDs, for: service)
@@ -609,7 +609,7 @@ extension FitShowTreadmillClient: @preconcurrency CBPeripheralDelegate {
                     error: Error?) {
         guard peripheral.identifier == self.peripheral?.identifier else { return }
         guard error == nil else {
-            return failPreparation("Nem sikerült feliratkozni az eszköz adataira.")
+            return failPreparation(String(localized: "Couldn't subscribe to the device's data."))
         }
         guard characteristic.uuid == notifyCharacteristic?.uuid,
               characteristic.isNotifying,

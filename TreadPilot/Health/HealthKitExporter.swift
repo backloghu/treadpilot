@@ -43,7 +43,7 @@ final class HealthKitExporter: ObservableObject {
     func export(_ session: WorkoutSessionRecord) async {
         guard HKHealthStore.isHealthDataAvailable() else {
             currentSessionID = session.persistentModelID
-            state = .failed("Ezen az eszközön nem érhető el a HealthKit.")
+            state = .failed(String(localized: "Health is not available on this device."))
             return
         }
         guard !session.healthKitSynced else {
@@ -76,11 +76,11 @@ final class HealthKitExporter: ObservableObject {
                 read: []
             )
         } catch {
-            state = .failed("A HealthKit-engedély kérése nem sikerült.")
+            state = .failed(String(localized: "Health permission request failed."))
             return
         }
         guard store.authorizationStatus(for: workoutType) == .sharingAuthorized else {
-            state = .failed("A Health-írás nincs engedélyezve — a Beállítások → Egészség alatt adható meg.")
+            state = .failed(String(localized: "Writing to Health is turned off — enable it in Settings → Health."))
             return
         }
 
@@ -145,7 +145,7 @@ final class HealthKitExporter: ObservableObject {
             session.healthKitSynced = true
             state = .saved
         } catch {
-            state = .failed("A mentés nem sikerült: \(error.localizedDescription)")
+            state = .failed(String(localized: "Save failed: \(error.localizedDescription)"))
         }
     }
 }
