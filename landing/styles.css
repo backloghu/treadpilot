@@ -189,6 +189,13 @@ p { margin: 0; }
 .card h3 { font-size: 19px; font-weight: 600; margin: 12px 0 10px; }
 .card p { font-size: 14.5px; line-height: 1.6; color: var(--mid); }
 .card.fill p { color: #0E0E0CB3; }
+/* The demo section. The clip is narrated and a minute long, so it is a
+   watch-it-once piece rather than ambient motion: it lives on YouTube, embedded
+   through the nocookie domain, instead of being self-hosted and muted. */
+.demo { padding-top: 62px; }
+.demo .vidembed { margin-top: 40px; }
+.videonote { font-size: 13.5px; line-height: 1.6; color: var(--mid); margin-top: 14px; }
+
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 46px; align-items: center; }
 /* The code block's longest line (the git clone URL) cannot break, so its
    min-content width would floor the 1fr column and push the whole page wider
@@ -304,3 +311,99 @@ a.mark { text-decoration: none; }
 .nav a.mark { color: #FAFAF7; text-decoration: none; }
 .nav a.mark:hover { color: #FAFAF7; }
 .nav a.mark i { color: #FFEB3B; }
+
+/* ============================================================
+   PRESS PAGE. Borrows the document page's typography, but sits in a
+   wider column: the fact table and the image grid need the room that
+   a prose measure deliberately withholds.
+   ============================================================ */
+.press { max-width: 880px; }
+/* The fact table is shared with the home page, where it lives in a
+   half-width column. Here it has the full measure, so the key column
+   can afford to be wider — and on a phone the pair stacks instead of
+   squeezing the value into a gutter. */
+.press .kv { margin: 0 0 14px; padding-left: 0; }
+.press .kv li { display: flex; margin-bottom: 0; }
+.press .kv .k { width: 168px; }
+@media (max-width: 620px) {
+  .press .kv li { flex-direction: column; gap: 4px; }
+  .press .kv .k { width: auto; }
+}
+
+/* Status line: the one fact a journalist checks first, so it is not
+   allowed to read as body copy. */
+.press-status {
+  border-left: 3px solid var(--acc); padding: 2px 0 2px 16px;
+  margin: 26px 0 0 !important;
+}
+.press-dl { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 26px !important; }
+
+/* The demo video — used by the home page's demo section too, not only here.
+   `aspect-ratio` keeps the 16:9 box responsive without the old padding-top
+   wrapper trick, and the ink background means the frame does not flash paper
+   white while YouTube's player is still loading. */
+.vidembed { margin: 26px 0 34px; }
+.vidembed iframe {
+  display: block; width: 100%; aspect-ratio: 16 / 9;
+  border: 0; border-radius: 14px; background: var(--ink);
+}
+.vidembed figcaption {
+  font-size: 13px; line-height: 1.55; color: var(--mid); margin-top: 10px;
+}
+
+/* What is in the archive. A definition list in spirit, but the term needs
+   to stay legible next to a long description, hence the fixed column. */
+.kit-list { list-style: none; padding-left: 0 !important; }
+.kit-list li { display: flex; gap: 18px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.kit-list .kk { font-weight: 600; color: var(--ink); width: 130px; flex: none; }
+.kit-list .kv- { color: var(--mid); }
+@media (max-width: 620px) {
+  .kit-list li { flex-direction: column; gap: 4px; }
+  .kit-list .kk { width: auto; }
+}
+
+/* Boilerplate. Deliberately looks like something to be lifted: a plain
+   panel, a label, and text a journalist can select without catching the
+   surrounding page furniture. */
+.copyblock {
+  border: 1.5px solid var(--rule); border-radius: 14px; background: #fff;
+  padding: 20px 22px; margin: 0 0 14px;
+}
+.cb-label {
+  font-family: "IBM Plex Mono", monospace; font-size: 11.5px; font-weight: 500;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--mid);
+  display: block; margin-bottom: 10px;
+}
+.copyblock p { margin: 0 !important; }
+.press-note { color: var(--mid); font-size: 15px !important; }
+
+/* "What it is not" — the list that stops a wrong article being written. */
+.notlist { list-style: none; padding-left: 0 !important; }
+.notlist li {
+  padding-left: 18px; position: relative; margin-bottom: 12px; color: #2C2C28;
+}
+.notlist li::before {
+  content: ""; position: absolute; left: 0; top: .62em;
+  width: 7px; height: 7px; border-radius: 50%; background: var(--acc);
+  box-shadow: 0 0 0 1px #0E0E0C1A;
+}
+
+/* Image previews. The icon is square and the gallery frames are tall, so the
+   row sits on a shared bottom edge: that way the captions line up instead of
+   the icon's caption floating halfway up the row. */
+.assets {
+  display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-end;
+  margin: 0 0 26px;
+}
+.assets figure, .asset-wide { margin: 0; }
+.assets img, .asset-wide img {
+  display: block; height: auto; border-radius: 10px;
+  border: 1px solid var(--rule); background: #fff;
+}
+.assets figcaption, .asset-wide figcaption {
+  font-size: 12.5px; line-height: 1.5; color: var(--mid); margin-top: 8px;
+  max-width: 22ch;
+}
+.asset-wide { margin-bottom: 26px; }
+.asset-wide img { max-width: 100%; }
+.asset-wide figcaption { max-width: 62ch; }
