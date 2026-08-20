@@ -1,6 +1,6 @@
 # Notices
 
-TreadPilot is copyright © 2026 Backlog Kft. (Budapest, Hungary) and is
+TreadPilot is copyright © 2026 Backlog Fejlesztő Kft. (Budapest, Hungary) and is
 distributed under the **GNU General Public License, version 3 or later**.
 The full licence text is in [LICENSE](LICENSE).
 
@@ -15,7 +15,7 @@ The GPL grants rights to the **software**. It does not grant rights to
 trademarks or branding, and this project does not grant them either.
 
 Specifically, the following are **excluded** from the GPL grant and remain the
-property of Backlog Kft.:
+property of Backlog Fejlesztő Kft.:
 
 - the name **TreadPilot**;
 - the **TREADPILOT.** wordmark, in any typeface or arrangement;
@@ -40,7 +40,7 @@ Contributions are accepted under a Contributor Licence Agreement — see
 
 The reason is practical rather than defensive. Apple's App Store terms and the
 GPL are in conflict (this is why VLC was once pulled from the App Store). As
-the copyright holder, Backlog Kft. is not bound by the GPL when distributing
+the copyright holder, Backlog Fejlesztő Kft. is not bound by the GPL when distributing
 its own build, which is what makes the App Store release possible. If
 third-party code arrived under the bare GPL, the combined work could no longer
 be shipped there — and the released app would be the casualty. The CLA keeps

@@ -63,6 +63,12 @@ A physical iPhone is required for Bluetooth; the simulator offers Demo Mode.
 For the Watch app, select your team on both targets and enable Developer
 Mode on the watch.
 
+## Links
+
+- **Website:** <https://treadpilot.app>
+- **Facebook:** <https://www.facebook.com/treadpilot>
+- **Issues and discussion:** <https://github.com/backloghu/treadpilot/issues>
+
 ## Contributing
 
 Contributions are welcome — especially protocol traces from treadmills other
@@ -92,4 +98,4 @@ Tunturi is a trademark of Tunturi New Fitness B.V.; FitShow and Apple product
 names belong to their respective owners. This is an independent project, not
 affiliated with or endorsed by any of them.
 
-Built by [Backlog Kft.](https://backlog.hu) in Budapest.
+Built by [Backlog Fejlesztő Kft.](https://backlog.hu) in Budapest.

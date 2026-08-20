@@ -1,6 +1,6 @@
 # Contributor Licence Agreement
 
-**TreadPilot — Backlog Kft., Budapest, Hungary**
+**TreadPilot — Backlog Fejlesztő Kft., Budapest, Hungary**
 Version 1.0, 2026-08-20
 
 > **Not legal advice.** This document is written in plain language on purpose.
@@ -12,7 +12,7 @@ protocol trace, documentation, a translation — you agree to the terms below.
 
 ## 1. What you are giving us
 
-You grant Backlog Kft. a perpetual, worldwide, non-exclusive, royalty-free,
+You grant Backlog Fejlesztő Kft. a perpetual, worldwide, non-exclusive, royalty-free,
 irrevocable licence to use, reproduce, modify, adapt, publish, sublicense and
 distribute your contribution, **including the right to distribute it under
 licences other than the GPL**.
@@ -30,7 +30,7 @@ are not signing anything away.
 
 Two reasons, both concrete:
 
-1. **The App Store.** Apple's terms and the GPL are in conflict. Backlog Kft.
+1. **The App Store.** Apple's terms and the GPL are in conflict. Backlog Fejlesztő Kft.
    can ship a build to the App Store because, as the copyright holder, it is not
    bound by its own GPL grant. If contributions arrived under the bare GPL, the
    combined work could no longer be distributed there and the released app would

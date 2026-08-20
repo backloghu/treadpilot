@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TreadPilot — Control your treadmill from your iPhone</title>
+<meta name="description" content="Control your FitShow treadmill from your iPhone: live speed and incline, interval programs, Apple Watch heart rate and Apple Health sync. Free and open source.">
+<link rel="canonical" href="https://treadpilot.app/">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#FAFAF7">
+<meta name="author" content="Backlog Fejlesztő Kft.">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TreadPilot">
+<meta property="og:url" content="https://treadpilot.app/">
+<meta property="og:title" content="TreadPilot — Control your treadmill from your iPhone">
+<meta property="og:description" content="Control your FitShow treadmill from your iPhone: live speed and incline, interval programs, Apple Watch heart rate and Apple Health sync. Free and open source.">
+<meta property="og:image" content="https://treadpilot.app/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="TreadPilot running an interval program on an iPhone, with live heart rate on an Apple Watch.">
+<meta property="og:locale" content="en_GB">
+
+<!-- Twitter / X -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TreadPilot — Control your treadmill from your iPhone">
+<meta name="twitter:description" content="Control your FitShow treadmill from your iPhone: live speed and incline, interval programs, Apple Watch heart rate and Apple Health sync. Free and open source.">
+<meta name="twitter:image" content="https://treadpilot.app/og.png">
+<meta name="twitter:image:alt" content="TreadPilot running an interval program on an iPhone, with live heart rate on an Apple Watch.">
+
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Public+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/styles.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "TreadPilot",
+      "url": "https://treadpilot.app/",
+      "applicationCategory": "HealthApplication",
+      "operatingSystem": "iOS 17, watchOS 10",
+      "description": "Control your FitShow treadmill from your iPhone: live speed and incline, interval programs, Apple Watch heart rate and Apple Health sync. Free and open source.",
+      "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+      "author": { "@type": "Organization", "name": "Backlog Fejlesztő Kft.", "url": "https://backlog.hu" },
+      "codeRepository": "https://github.com/backloghu/treadpilot",
+      "sameAs": [
+        "https://github.com/backloghu/treadpilot",
+        "https://www.facebook.com/treadpilot"
+      ],
+      "featureList": [
+        "Live speed, incline, distance, calories, steps and elevation gain over Bluetooth",
+        "Interval workout programs that drive the treadmill belt",
+        "Live heart rate from Apple Watch",
+        "Workouts saved to Apple Health",
+        "On-device workout history with charts",
+        "Demo mode without a treadmill"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "name": "Backlog Fejlesztő Kft.",
+      "url": "https://backlog.hu",
+      "sameAs": ["https://www.facebook.com/treadpilot"],
+      "location": { "@type": "Place", "address": { "@type": "PostalAddress", "addressLocality": "Budapest", "addressCountry": "HU" } }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="visually-hidden" href="#features">Skip to content</a>
+<div class="wrap">
+  <nav class="nav">
+    <span class="mark">TREADPILOT<i>.</i></span>
+    <a href="#features">Features</a><a href="#guide">Guide</a><a href="#developers">Developers</a><a class="pill" href="https://github.com/backloghu/treadpilot">GitHub</a>
+  </nav>
+
+  <header class="hero">
+    <h1>Run your <mark>treadmill</mark><br>from your pocket.</h1>
+    <div class="herotext">
+        <p class="lede">
+          TreadPilot connects to FitShow-protocol treadmills over Bluetooth and takes the wheel:
+          live numbers, interval programs that drive the belt for you, Apple Watch heart rate,
+          and every run saved to Apple Health.
+        </p>
+        <div class="cta">
+          <a class="btn solid" href="#developers">Coming to the App&nbsp;Store</a>
+          <a class="btn ghost" href="https://github.com/backloghu/treadpilot">It&#39;s open source →</a>
+        </div>
+        <ul class="trust">
+          <li>Open source · GPL-3.0</li>
+          <li>No account</li>
+          <li>No tracking</li>
+          <li>iOS 17+ · watchOS 10+</li>
+        </ul>
+    </div>
+      <div class="stage">
+        <div class="dev dev-phone">
+          <div class="screen seq-4">
+            <img src="img/03-workout.png" alt="TreadPilot running an interval program">
+            <img src="img/07-detail.png" alt="Workout detail with speed and heart-rate charts">
+            <img src="img/06-history.png" alt="Workout history">
+            <img src="img/02-home.png" alt="Home screen with manual and program start">
+          </div>
+        </div>
+        <div class="dev dev-watch">
+          <div class="screen seq-3">
+            <img src="img/watch-1.png" alt="Apple Watch showing live heart rate">
+            <img src="img/watch-2.png" alt="Apple Watch showing live heart rate">
+            <img src="img/watch-3.png" alt="Apple Watch showing live heart rate">
+          </div>
+        </div>
+      </div>
+  </header>
+ </div>
+
+ <div class="marquee" aria-hidden="true">
+   <div class="marquee-track">
+     <div class="marquee-set"><span>Live speed &amp; incline</span><i>◆</i><span>Interval programs</span><i>◆</i><span>Apple Watch heart rate</span><i>◆</i><span>Elevation gain</span><i>◆</i><span>Apple Health</span><i>◆</i><span>No account</span><i>◆</i><span>No tracking</span><i>◆</i><span>GPL-3.0 licensed</span></div>
+     <div class="marquee-set"><span>Live speed &amp; incline</span><i>◆</i><span>Interval programs</span><i>◆</i><span>Apple Watch heart rate</span><i>◆</i><span>Elevation gain</span><i>◆</i><span>Apple Health</span><i>◆</i><span>No account</span><i>◆</i><span>No tracking</span><i>◆</i><span>GPL-3.0 licensed</span></div>
+     <div class="marquee-set"><span>Live speed &amp; incline</span><i>◆</i><span>Interval programs</span><i>◆</i><span>Apple Watch heart rate</span><i>◆</i><span>Elevation gain</span><i>◆</i><span>Apple Health</span><i>◆</i><span>No account</span><i>◆</i><span>No tracking</span><i>◆</i><span>GPL-3.0 licensed</span></div>
+   </div>
+ </div>
+
+ <div class="wrap">
+  <section class="sec" id="features">
+    <h2>Four taps from<br>standing to running.</h2>
+    <p class="sub">No account, no cloud, no subscription. Just your phone and the machine in front of you.</p>
+    <div class="cards">
+      <div class="card"><div class="n">01</div><h3>Connect</h3><p>The app finds your treadmill over Bluetooth and pairs in seconds.</p></div>
+      <div class="card fill"><div class="n">02</div><h3>Run</h3><p>Speed, incline, distance, calories, steps and elevation, live every second.</p></div>
+      <div class="card"><div class="n">03</div><h3>Program</h3><p>Intervals that drive the belt for you — warm up, push, recover, cool down.</p></div>
+    </div>
+  </section>
+
+  <section class="sec" style="padding-top:0">
+    <div class="split">
+      <div>
+        <h2>The numbers your console forgets.</h2>
+        <p class="sub">
+          Elevation gain from speed and incline. Heart rate straight off your Apple Watch.
+          Calories from your real body data, not a generic guess. Every session charted and
+          kept — and written into Apple Health where the rest of your training lives.
+        </p>
+      </div>
+      <ul class="kv">
+        <li><span class="k">Telemetry</span><span class="v">Speed, incline, distance, calories, steps, heart rate</span></li>
+        <li><span class="k">Programs</span><span class="v">Built-in and custom, with a full segment editor</span></li>
+        <li><span class="k">Watch</span><span class="v">Live heart rate from your Apple Watch</span></li>
+        <li><span class="k">Health</span><span class="v">Workouts, distance, energy and heart rate</span></li>
+        <li><span class="k">Works with</span><span class="v">FitShow treadmills — Tunturi T40 verified on hardware</span></li>
+        <li><span class="k">No treadmill?</span><span class="v">Demo mode simulates one so you can try everything</span></li>
+      </ul>
+    </div>
+
+    <div class="safetyrow">
+      <div class="dev dev-phone still"><div class="screen"><img loading="lazy" decoding="async" src="img/10-safety-confirm.png" alt="Start confirmation showing the safety instruction"></div></div>
+      <div class="warn">
+      <h3>Read this before your first run</h3>
+      <p>
+        TreadPilot starts and drives a real treadmill belt. It never starts without your explicit
+        confirmation, and programmed starts always run a countdown you can cancel. Stand on the side
+        rails, not on the belt, and clip on the safety key. If the Bluetooth link drops, the belt may
+        keep running at the last set speed — your treadmill's own stop button and safety key remain
+        your primary protection.
+      </p>
+      </div>
+    </div>
+  </section>
+
+ </div>
+
+ <!-- KÉZIKÖNYV — valódi képernyőképek az appból -->
+ <section class="guide" id="guide">
+  <div class="wrap">
+    <span class="eyebrow">The guide</span>
+    <h2 style="margin-top:16px">From unboxing your phone<br>to your first interval.</h2>
+    <p class="sub">Six screens is the whole app. Here is every one of them, in the order you will meet them.</p>
+    <div class="steps6">
+      <div class="gstep">
+        <div class="gshot">
+          <div class="dev dev-phone still"><div class="screen"><img loading="lazy" decoding="async" src="img/02-home.png" alt="Connect and choose"></div></div>
+        </div>
+        <div class="gnum">1</div>
+        <h3>Connect and choose</h3>
+        <p>Switch the console on and open TreadPilot — it finds your treadmill over Bluetooth and pairs in seconds. Then one question: drive the belt yourself, or let a program do it?</p>
+        <p class="tip">No treadmill yet? Demo mode runs the whole app on a simulated belt.</p>
+      </div>
+      <div class="gstep">
+        <div class="gshot">
+          <div class="dev dev-phone still"><div class="screen"><img loading="lazy" decoding="async" src="img/03-workout.png" alt="Run"></div></div>
+        </div>
+        <div class="gnum">2</div>
+        <h3>Run</h3>
+        <p>Everything on one screen: the current segment counting down at the top, your speed in the middle, and the six numbers that matter underneath. Stop and pause stay within thumb reach.</p>
+        <p class="tip">Wearing an Apple Watch? Your heart rate appears here on its own.</p>
+      </div>
+      <div class="gstep">
+        <div class="gshot">
+          <div class="dev dev-phone still"><div class="screen"><img loading="lazy" decoding="async" src="img/04-programs.png" alt="Keep your programs"></div></div>
+        </div>
+        <div class="gnum">3</div>
+        <h3>Keep your programs</h3>
+        <p>Built-in programs to start from, and your own below them. Duplicate any built-in to make it yours — the originals stay untouched.</p>
+      </div>
+      <div class="gstep">
+        <div class="gshot">
+          <div class="dev dev-phone still"><div class="screen"><img loading="lazy" decoding="async" src="img/05-editor.png" alt="Build your own"></div></div>
+        </div>
+        <div class="gnum">4</div>
+        <h3>Build your own</h3>
+        <p>Add segments, set a target speed and incline for each, and the summary recalculates as you type — total time, distance, elevation gain and average speed, before you ever step on.</p>
+      </div>
+      <div class="gstep">
+        <div class="gshot">
+          <div class="dev dev-phone still"><div class="screen"><img loading="lazy" decoding="async" src="img/07-detail.png" alt="Save it to Health"></div></div>
+        </div>
+        <div class="gnum">5</div>
+        <h3>Save it to Health</h3>
+        <p>When the belt stops you get a summary, and the workout goes into Apple Health with distance, energy, heart rate and elevation. Automatically, or with one tap.</p>
+        <p class="tip">Missed a sync? Open the workout later and save it from here.</p>
+      </div>
+      <div class="gstep">
+        <div class="gshot">
+          <div class="dev dev-phone still"><div class="screen"><img loading="lazy" decoding="async" src="img/06-history.png" alt="Look back"></div></div>
+        </div>
+        <div class="gnum">6</div>
+        <h3>Look back</h3>
+        <p>Every session stays on your phone with speed and heart-rate charts. A filled heart means it is already in Apple Health; an outline means one tap will put it there.</p>
+        <p class="tip">Nothing is uploaded anywhere. Your history lives on your device.</p>
+      </div>
+    </div>
+  </div>
+ </section>
+
+ <div class="wrap">
+  <section class="sec" id="developers" style="padding-top:76px">
+    <div class="split">
+      <div>
+        <h2>Open source,<br>all the way down.</h2>
+        <p class="sub">
+          GPL-3.0 licensed. No telemetry, no dependencies, no dark corners. The Bluetooth protocol is
+          documented in the source byte by byte — so nobody has to reverse-engineer this console again.
+        </p>
+        <div class="cta">
+          <a class="btn solid" href="https://github.com/backloghu/treadpilot">Browse the code</a>
+          <a class="btn ghost" href="https://github.com/backloghu/treadpilot/blob/main/CONTRIBUTING.md">Contributing guide</a>
+        </div>
+      </div>
+      <div>
+        <pre><span class="c"># Build it yourself</span>
+git clone https://github.com/backloghu/treadpilot
+brew install xcodegen
+xcodegen generate
+
+<span class="c"># FitShow frame layout</span>
+0x02 │ CMD │ DATA… │ XOR-FCS │ 0x03
+
+<span class="c"># Target 9.0 km/h @ 2% incline</span>
+<span class="y">02 53 02 5A 02</span> 0B <span class="y">03</span></pre>
+      </div>
+    </div>
+  </section>
+ </div>
+
+ <footer>
+  <div class="wrap in">
+    <div>
+      <span class="mark">TREADPILOT<i>.</i></span>
+      <p>
+        Built by <a href="https://backlog.hu">Backlog Fejlesztő Kft.</a> in Budapest.
+        Not affiliated with, endorsed by, or supported by Tunturi or FitShow — all trademarks belong to their owners.
+      </p>
+      <ul class="social">
+        <li><a href="https://github.com/backloghu/treadpilot">GitHub</a></li>
+        <li><a href="https://www.facebook.com/treadpilot" rel="me">Facebook</a></li>
+        <li><a href="mailto:hello@backlog.hu">hello@backlog.hu</a></li>
+      </ul>
+    </div>
+    <span class="right">treadpilot.app</span>
+  </div>
+ </footer>
+</body>
+</html>

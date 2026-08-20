@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 Backlog Kft. — https://treadpilot.app
+// Copyright (C) 2026 Backlog Fejlesztő Kft. — https://treadpilot.app
 
 #if DEBUG
 
@@ -105,7 +105,9 @@ enum SampleData {
         let start = calendar.date(from: components) ?? day
 
         let session = WorkoutSessionRecord(startedAt: start,
-                                           deviceName: "SW5010CAI-2678",
+                                           // Általános név: a fejlesztő saját padjának BLE-azonosítója ne
+                                           // kerüljön be a nyilvános repóba és a képernyőképekbe.
+                                           deviceName: "SW5010CAI-0000",
                                            programName: plan.program)
         context.insert(session)
 

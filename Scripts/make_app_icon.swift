@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 Backlog Kft. — https://treadpilot.app
+// Copyright (C) 2026 Backlog Fejlesztő Kft. — https://treadpilot.app
 
 // App-ikon generátor — Backlog-arculat: Deep Space mező, Space Grotesk Bold
 // fehér „T" + neon sárga pont, finom rácsvonal-textúra.

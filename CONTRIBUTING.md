@@ -67,6 +67,17 @@ open TreadPilot.xcodeproj
 checked in.** After adding, moving or removing a file, run `xcodegen generate`
 again.
 
+`project.yml` pins `DEVELOPMENT_TEAM` to the maintainer's Apple team so that
+the released build signs without fuss. If you are building on your own device,
+change that value to your own team id, or override it on the command line:
+
+```bash
+xcodebuild -project TreadPilot.xcodeproj -scheme TreadPilot \
+  -destination 'id=<your-device>' DEVELOPMENT_TEAM=<your-team-id> build
+```
+
+The Simulator needs no signing at all, so most contributions never hit this.
+
 Tests:
 
 ```bash
