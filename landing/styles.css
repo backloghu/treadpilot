@@ -189,12 +189,6 @@ p { margin: 0; }
 .card h3 { font-size: 19px; font-weight: 600; margin: 12px 0 10px; }
 .card p { font-size: 14.5px; line-height: 1.6; color: var(--mid); }
 .card.fill p { color: #0E0E0CB3; }
-/* The demo section. The clip is narrated and a minute long, so it is a
-   watch-it-once piece rather than ambient motion: it lives on YouTube, embedded
-   through the nocookie domain, instead of being self-hosted and muted. */
-.demo { padding-top: 62px; }
-.demo .vidembed { margin-top: 40px; }
-.videonote { font-size: 13.5px; line-height: 1.6; color: var(--mid); margin-top: 14px; }
 
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 46px; align-items: center; }
 /* The code block's longest line (the git clone URL) cannot break, so its
@@ -220,7 +214,7 @@ pre .y { color: var(--acc); }
 .guide { background: var(--ink); color: #FAFAF7; padding: 84px 0; }
 .guide h2 { color: #FAFAF7; }
 .guide .sub { color: #FAFAF7A6; }
-.guide .eyebrow { font-family: "Space Grotesk", sans-serif; font-size: 12px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--acc); }
+.eyebrow { font-family: "Space Grotesk", sans-serif; font-size: 12px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--acc); }
 .steps6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px 26px; margin-top: 52px; }
 .gstep { display: flex; flex-direction: column; }
 .gshot { display: flex; justify-content: center; margin-bottom: 20px; }
@@ -338,10 +332,9 @@ a.mark { text-decoration: none; }
 }
 .press-dl { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 26px !important; }
 
-/* The demo video — used by the home page's demo section too, not only here.
-   `aspect-ratio` keeps the 16:9 box responsive without the old padding-top
-   wrapper trick, and the ink background means the frame does not flash paper
-   white while YouTube's player is still loading. */
+/* The demo video. `aspect-ratio` keeps the 16:9 box responsive without the old
+   padding-top wrapper trick, and the ink background means the frame does not
+   flash paper white while YouTube's player is still loading. */
 .vidembed { margin: 26px 0 34px; }
 .vidembed iframe {
   display: block; width: 100%; aspect-ratio: 16 / 9;
@@ -407,3 +400,93 @@ a.mark { text-decoration: none; }
 .asset-wide { margin-bottom: 26px; }
 .asset-wide img { max-width: 100%; }
 .asset-wide figcaption { max-width: 62ch; }
+
+
+/* ============================================================
+   THE DEMO BAND. A dark full-bleed lane of its own: the clip is the one
+   piece of proof on the page, and inline in the paper column it read as
+   an afterthought. It sits after the feature cards rather than straight
+   after the marquee, so the two dark areas do not fuse into one mass.
+
+   Nothing of YouTube's is fetched until someone asks for it — the card is
+   a still from the video's own title frame, and the player is built into
+   the dialog on click. That also means no third-party request, and no
+   cookie, for the majority who never press play.
+   ============================================================ */
+.videoband { background: var(--ink); color: #FAFAF7; padding: 84px 0; }
+.videoband h2 { color: #FAFAF7; font-size: clamp(32px, 5vw, 54px); font-weight: 800; line-height: 1.02; }
+.videoband .sub { color: #FAFAF7A6; font-size: 17px; line-height: 1.6; max-width: 56ch; margin-top: 18px; }
+.videoband .videonote { color: #FAFAF780; max-width: 68ch; }
+
+.playcard {
+  display: block; position: relative; margin: 42px 0 18px;
+  border-radius: 18px; overflow: hidden; background: #000;
+  border: 1px solid #FFFFFF2E;
+  box-shadow: 0 34px 70px -30px #000000E6;
+  text-decoration: none; max-width: 900px;
+}
+.playcard img { display: block; width: 100%; height: auto; }
+/* The poster is already dark, but the play button needs to win against the
+   yellow bar in the artwork, so the whole still is knocked back a touch. */
+.playcard::before {
+  content: ""; position: absolute; inset: 0; background: #0E0E0C40;
+  transition: background .18s ease;
+}
+.playcard:hover::before, .playcard:focus-visible::before { background: #0E0E0C1A; }
+.playbtn {
+  position: absolute; inset: 0; margin: auto;
+  width: 88px; height: 88px; border-radius: 50%;
+  background: var(--acc); color: var(--ink);
+  display: grid; place-items: center;
+  box-shadow: 0 14px 34px -10px #0E0E0CA6;
+  transition: transform .18s ease;
+}
+/* The glyph is a triangle, so its optical centre sits left of the circle's. */
+.playbtn svg { margin-left: 4px; }
+.playcard:hover .playbtn, .playcard:focus-visible .playbtn { transform: scale(1.07); }
+.playmeta {
+  position: absolute; left: 18px; bottom: 16px;
+  font-family: "Space Grotesk", sans-serif; font-size: 12px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: #FAFAF7; background: #0E0E0CB3; border-radius: 100px;
+  padding: 7px 14px; backdrop-filter: blur(4px);
+}
+/* On a phone the card is only ~180px tall, where an 88px button eats half its
+   height. */
+@media (max-width: 600px) {
+  .playbtn { width: 62px; height: 62px; }
+  .playbtn svg { width: 26px; height: 26px; }
+  .playmeta { left: 12px; bottom: 11px; font-size: 11px; padding: 6px 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .playcard::before, .playbtn { transition: none; }
+  .playcard:hover .playbtn, .playcard:focus-visible .playbtn { transform: none; }
+}
+
+/* The player dialog. <dialog> is doing the work here: it centres itself, traps
+   focus, and closes on Escape without any of that being scripted. */
+.vidmodal {
+  border: 0; padding: 0; background: transparent;
+  width: min(1100px, 92vw); max-width: none; max-height: none;
+  overflow: visible;
+}
+.vidmodal::backdrop { background: #0E0E0CEB; }
+.vidframe {
+  position: relative; aspect-ratio: 16 / 9;
+  background: #000; border-radius: 14px; overflow: hidden;
+  box-shadow: 0 40px 90px -30px #000;
+}
+.vidframe iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.vidclose {
+  position: absolute; top: -46px; right: 0;
+  width: 34px; height: 34px; padding: 0; cursor: pointer;
+  display: grid; place-items: center;
+  background: transparent; border: 0; border-radius: 50%;
+  color: #FAFAF7;
+}
+.vidclose:hover { background: #FAFAF71F; }
+/* On a short viewport the dialog is nearly as tall as the screen, so the close
+   button has no room above it and moves inside the frame instead. */
+@media (max-height: 560px) {
+  .vidclose { top: 8px; right: 8px; background: #0E0E0CB3; }
+}

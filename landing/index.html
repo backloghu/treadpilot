@@ -134,21 +134,6 @@
  </div>
 
  <div class="wrap">
-  <!-- THE DEMO — the app actually running, before any of the explaining -->
-  <section class="sec demo" id="demo">
-    <h2>A minute,<br>end to end.</h2>
-    <p class="sub">The countdown, the belt running, live metrics, heart rate off the
-    Watch, and the workout charted and saved. Every claim on this page, moving.</p>
-    <figure class="vidembed">
-      <iframe src="https://www.youtube-nocookie.com/embed/9LcUacZv3wA?rel=0"
-              title="TreadPilot — demo video"
-              loading="lazy" allowfullscreen
-              referrerpolicy="strict-origin-when-cross-origin"></iframe>
-    </figure>
-    <p class="videonote">Recorded in the app's built-in Demo Mode on a simulated
-    treadmill, so the numbers are simulated rather than a real run.</p>
-  </section>
-
   <section class="sec" id="features">
     <h2>Four taps from<br>standing to running.</h2>
     <p class="sub">No account, no cloud, no subscription. Just your phone and the machine in front of you.</p>
@@ -158,6 +143,32 @@
       <div class="card"><div class="n">03</div><h3>Program</h3><p>Intervals that drive the belt for you — warm up, push, recover, cool down.</p></div>
     </div>
   </section>
+ </div>
+
+ <!-- THE DEMO — its own lane. The poster is the video's own title card, and the
+      YouTube player is only fetched once someone asks for it. -->
+ <section class="videoband" id="demo">
+  <div class="wrap">
+    <span class="eyebrow">The demo</span>
+    <h2 style="margin-top:16px">Watch it drive the belt.</h2>
+    <p class="sub">One minute, start to finish: connect, build a program, and let it
+    run — live speed and incline, heart rate from the Watch, and the finished run
+    charted and saved to Apple Health.</p>
+    <a class="playcard" href="https://youtu.be/9LcUacZv3wA" data-video="9LcUacZv3wA">
+      <img loading="lazy" decoding="async" src="/img/press/demo-poster.jpg"
+           alt="TreadPilot demo video: put your treadmill on autopilot" width="1280" height="720">
+      <span class="playbtn" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </span>
+      <span class="playmeta">Play · 59 sec</span>
+    </a>
+    <p class="videonote">Recorded in the app's built-in Demo Mode on a simulated
+    treadmill, so the numbers are simulated rather than a real run. The narration and
+    music are AI-generated.</p>
+  </div>
+ </section>
+
+ <div class="wrap">
 
   <section class="sec" style="padding-top:0">
     <div class="split">
@@ -308,5 +319,50 @@ xcodegen generate
     <span class="right">treadpilot.app</span>
   </div>
  </footer>
+
+ <!-- The player lives here, and only exists while it is open: closing the dialog
+      empties the frame, which is also what stops playback. Without JavaScript the
+      poster stays an ordinary link to YouTube. -->
+ <dialog class="vidmodal" id="vidmodal" aria-label="TreadPilot demo video">
+   <button class="vidclose" type="button" aria-label="Close video">
+     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 5l14 14M19 5L5 19"/></svg>
+   </button>
+   <div class="vidframe"></div>
+ </dialog>
+
+<script>
+(function () {
+  var dlg = document.getElementById('vidmodal');
+  if (!dlg || typeof dlg.showModal !== 'function') return;   // no <dialog>: the link works
+  var frame = dlg.querySelector('.vidframe');
+
+  // Destroying the iframe is what stops playback, so every close path has to run
+  // this — the dialog's own close event cannot be relied on to fire.
+  function teardown() { frame.replaceChildren(); }
+  function shut() { if (dlg.open) { dlg.close(); } teardown(); }
+
+  document.querySelectorAll('[data-video]').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      var f = document.createElement('iframe');
+      f.src = 'https://www.youtube-nocookie.com/embed/' + link.dataset.video + '?autoplay=1&rel=0';
+      f.title = 'TreadPilot demo video';
+      f.allow = 'autoplay; fullscreen; encrypted-media';
+      f.referrerPolicy = 'strict-origin-when-cross-origin';
+      f.setAttribute('allowfullscreen', '');
+      // replaceChildren, not append: exactly one player exists no matter what
+      // happened on a previous open.
+      frame.replaceChildren(f);
+      dlg.showModal();
+    });
+  });
+
+  dlg.querySelector('.vidclose').addEventListener('click', shut);
+  // A click on the backdrop lands on the dialog itself, never on its children.
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) { shut(); } });
+  dlg.addEventListener('cancel', teardown);   // Escape
+  dlg.addEventListener('close', teardown);    // belt and braces
+})();
+</script>
 </body>
 </html>
