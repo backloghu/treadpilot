@@ -4,6 +4,16 @@
 import Foundation
 import SwiftData
 
+/// Why the app itself stopped the belt, if it did — distinct from an ordinary
+/// end (a segment or program finishing, or the user pressing stop). The live
+/// dashboard banner that used to be the only renderer of this fact lives in a
+/// view that unmounts the instant the console reports idle (finding 138), so
+/// the reason needs a home that outlives it: the workout record itself.
+enum WorkoutStopReason: String, CaseIterable, Sendable {
+    case none
+    case heartRateCeiling
+}
+
 /// One recorded workout. It owns its samples with a cascade delete.
 @Model
 final class WorkoutSessionRecord {
@@ -37,6 +47,21 @@ final class WorkoutSessionRecord {
     /// before this build reads as unmeasured instead of claiming, via a
     /// defaulted 0, that nothing was ever missing.
     var watchHeartRateSeconds: Int?
+    /// Why the app stopped the belt, if it did — the lightweight-migration
+    /// default `.none` reads as "an ordinary end" for every workout recorded
+    /// before this build, same as for one nothing ever stopped early
+    /// (finding 138). Latched by `SessionRecorder`, never by `ProgramRunner`
+    /// directly, so a later manual workout — which never runs the program
+    /// start path that used to be the only place the live flag was cleared —
+    /// begins on a fresh record instead of inheriting the previous one's
+    /// reason (finding 142).
+    var stopReasonRaw: String = WorkoutStopReason.none.rawValue
+    /// Whether the app asked the belt to stop and had not seen it obeyed by
+    /// the time this recording closed. Kept apart from `stopReasonRaw`
+    /// because the two facts are independent: a heart-rate-ceiling stop can
+    /// succeed or fail to be obeyed, and an ordinary stop can fail on its
+    /// own (finding 139).
+    var beltDidNotStop: Bool = false
 
     @Relationship(deleteRule: .cascade, inverse: \WorkoutSampleRecord.session)
     var samples: [WorkoutSampleRecord]
@@ -63,6 +88,14 @@ final class WorkoutSessionRecord {
     }
 
     var totalSeconds: Int { movingSeconds + pausedSeconds }
+
+    /// A record this build does not recognize reads as `.none` instead of
+    /// trapping, the same tolerance `CustomSegmentRecord.goal` gives an
+    /// unknown discriminator.
+    var stopReason: WorkoutStopReason {
+        get { WorkoutStopReason(rawValue: stopReasonRaw) ?? .none }
+        set { stopReasonRaw = newValue.rawValue }
+    }
 
     /// The share of moving time that had a live Watch heart rate, 0…100 — not
     /// of the merged reading the dashboard shows, because the handlebar sensor
@@ -101,15 +134,31 @@ final class WorkoutSampleRecord {
     var inclinePercent: Int
     var heartRate: Int
     var distanceKm: Double
+    /// The heart-rate band the governor was actually holding this second —
+    /// the *arbitrated* one (`ProgramRunner.governedBandBpm`), never the
+    /// segment's stored request, which the arbitration may have clamped away
+    /// from. Both default to 0 for a lightweight migration and for any second
+    /// nothing was governing; spec section 4, "Recording and review".
+    var targetHrLow: Int = 0
+    var targetHrHigh: Int = 0
     var session: WorkoutSessionRecord?
 
     init(offsetSeconds: Int, speedKmh: Double, inclinePercent: Int,
-         heartRate: Int, distanceKm: Double) {
+         heartRate: Int, distanceKm: Double,
+         targetHrLow: Int = 0, targetHrHigh: Int = 0) {
         self.offsetSeconds = offsetSeconds
         self.timestamp = Date()
         self.speedKmh = speedKmh
         self.inclinePercent = inclinePercent
         self.heartRate = heartRate
         self.distanceKm = distanceKm
+        self.targetHrLow = targetHrLow
+        self.targetHrHigh = targetHrHigh
     }
+
+    /// Was this second actually governed? 0/0 is the untouched default, and no
+    /// real band starts at 0 bpm — so the history chart can draw the band for
+    /// exactly the seconds that had one, and nothing for a workout that was
+    /// never governed.
+    var hasTargetHeartRateBand: Bool { targetHrHigh > 0 }
 }

@@ -18,6 +18,22 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
+                // `client.stopNotObeyed`'s own banner is hoisted to the root
+                // view now (finding 121), so it renders in every connection
+                // phase rather than only here and on the home screen.
+                //
+                // Read from the *session*, not `runner.governorStopReason`
+                // directly (finding 142): a manual workout run right after a
+                // governed one used to inherit its predecessor's red banner,
+                // because the runner's own flag survived past the workout that
+                // set it. `recorder.activeSession` being a fresh record every
+                // workout is not what fixes that on its own — the recorder also
+                // clears the runner's flag when that new session begins (see
+                // `SessionRecorder.begin()`), so there is nothing stale left for
+                // the next tick's latch to promote onto it.
+                if recorder.activeSession?.stopReason == .heartRateCeiling {
+                    HeartRateCeilingStopBanner()
+                }
                 statusHeader
                 if let watchError = watchHeartRate.startError {
                     Text(watchError)
@@ -80,6 +96,17 @@ struct DashboardView: View {
                 }
                 .font(Brand.display(10, .semibold))
                 .foregroundStyle(Brand.accent)
+            }
+            // Distinct from `SafetyStopBanner`, which is reserved for
+            // `client.stopNotObeyed`: the first seconds of an insisted stop are
+            // the app doing its job, not yet a failure worth alarming over.
+            if client.isStopOutstanding && !client.stopNotObeyed {
+                HStack(spacing: 4) {
+                    Image(systemName: "stop.circle")
+                    Text("STOPPING THE BELT…").tracking(1)
+                }
+                .font(Brand.display(10, .semibold))
+                .foregroundStyle(Brand.fgMid)
             }
             Spacer()
             if !client.limits.fromDevice {
@@ -239,8 +266,7 @@ struct DashboardView: View {
             HStack(spacing: 10) {
                 // The ACTUAL speed decides, not the reported status: some consoles
                 // report a "running" status with 0 speed even while paused — RESUME
-                // has to be available in that case too
-                // lennie (#181).
+                // has to be available in that case too (#181).
                 if client.state.isRunning && client.state.speedKmh > 0 {
                     Button {
                         client.requestStop()
@@ -261,7 +287,11 @@ struct DashboardView: View {
                         HStack { Image(systemName: "play.fill"); Text("RESUME").tracking(1.5) }
                     }
                     .buttonStyle(BrandCTAStyle())
-                    .disabled(client.state.status == .countdown)
+                    // A stop the app is still insisting on must not be undone by a
+                    // resume tap — the client would clamp the write down again, but
+                    // a button that visibly accepts the tap first is a worse answer
+                    // than one that says no up front.
+                    .disabled(client.state.status == .countdown || client.isStopOutstanding)
                     Button {
                         client.requestStop()
                     } label: {
@@ -271,6 +301,9 @@ struct DashboardView: View {
                 }
             }
 
+            // Neutralised rather than merely disabled: a "+" that visibly does
+            // nothing is less confusing than one that silently gets clamped down
+            // by the client while an outstanding stop is live.
             HStack(spacing: 10) {
                 adjuster(title: String(localized: "Speed"),
                          value: String(format: "%.1f", client.targetSpeedKmh),
@@ -281,6 +314,8 @@ struct DashboardView: View {
                          minus: { client.adjustIncline(by: -1) },
                          plus: { client.adjustIncline(by: 1) })
             }
+            .disabled(client.isStopOutstanding)
+            .opacity(client.isStopOutstanding ? 0.4 : 1)
         }
     }
 
@@ -337,6 +372,7 @@ struct DashboardView: View {
                 .font(Brand.display(10, .semibold))
                 .foregroundStyle(Brand.accent)
             }
+            governorRow
             if let segment = runner.currentSegment, let program = runner.program {
                 HStack(alignment: .center, spacing: 10) {
                     VStack(alignment: .leading, spacing: 3) {
@@ -345,11 +381,10 @@ struct DashboardView: View {
                             .foregroundStyle(.white)
                             .lineLimit(1)
                         if let next = runner.nextSegment {
-                            // Same helper the editor's segment rows use, so
-                            // speed+incline reads with one separator across
-                            // the app instead of a stray comma here.
-                            Text("→ \(next.name) · "
-                                 + SegmentFormat.target(speedKmh: next.targetSpeedKmh, incline: next.targetIncline))
+                            // Same helper the editor's segment rows use, so a
+                            // heart-rate segment previews its band here too,
+                            // instead of only ever showing its start command.
+                            Text("→ \(next.name) · " + SegmentFormat.target(next.target))
                                 .font(.caption)
                                 .foregroundStyle(Brand.fgDim)
                                 .lineLimit(1)
@@ -412,6 +447,70 @@ struct DashboardView: View {
             }
         }
         .brandBox(padding: 12)
+    }
+
+    /// Finding 105: three published facts the runner already computes and
+    /// nothing in the UI read — `governorStatus` (including the hand-back and
+    /// the give-up rule's "target not reached"), the band actually being held,
+    /// and whether that band was clamped below what the segment asked for. One
+    /// compact line, so it fits the same dense strip a distance segment's ETA
+    /// and pace already share.
+    @ViewBuilder
+    private var governorRow: some View {
+        if let status = runner.governorStatus {
+            let presentation = Self.governorPresentation(for: status)
+            HStack(spacing: 6) {
+                Image(systemName: presentation.icon)
+                Text(presentation.text).lineLimit(1)
+                if let band = runner.governedBandBpm {
+                    // Reuses the profile's own zone-range key (`ProfileView
+                    // .zoneRangeText`) instead of hand-rolling a second "%lld–%lld
+                    // bpm" format key. The "· " separator stays a plain literal,
+                    // unlocalized, matching every other mid-line separator in this
+                    // file (e.g. `heartRateText`, `distanceEtaLine` below).
+                    Text("· " + String(localized: "\(band.lowerBound)–\(band.upperBound) bpm")
+                         + (runner.governedBandIsReduced ? " " + String(localized: "(reduced)") : ""))
+                        .lineLimit(1)
+                }
+            }
+            .font(Brand.display(10, .semibold))
+            .foregroundStyle(presentation.color)
+        }
+    }
+
+    /// One line and one color per status, kept as a pure mapping so a new
+    /// `ProgramRunner.GovernorStatus` case fails to compile here rather than
+    /// silently showing nothing.
+    private static func governorPresentation(for status: ProgramRunner.GovernorStatus)
+        -> (icon: String, text: String, color: Color) {
+        switch status {
+        case .holding:
+            return ("checkmark.circle", String(localized: "Holding target"), Brand.accent)
+        case .adjusting:
+            return ("arrow.up.arrow.down.circle", String(localized: "Adjusting"), Brand.accent)
+        case .ceiling:
+            return ("arrow.down.circle.fill", String(localized: "Slowing down — heart rate high"), Brand.danger)
+        case .targetNotReached:
+            return ("exclamationmark.triangle", String(localized: "Target not reached — holding steady"), Brand.danger)
+        case .frozen:
+            return ("wifi.exclamationmark", String(localized: "No fresh heart rate — holding"), Brand.fgMid)
+        case .fallback:
+            return ("arrow.down.to.line.circle", String(localized: "Feed lost — reduced speed"), Brand.danger)
+        case .handedBack:
+            return ("hand.raised.fill", String(localized: "You're in control"), Brand.fgMid)
+        case .stopping:
+            return ("stop.circle.fill", String(localized: "Stopping — heart-rate limit"), Brand.danger)
+        case .controlOff:
+            return ("heart.slash", String(localized: "Heart-rate control off"), Brand.grey)
+        case .noBasis:
+            return ("heart.slash", String(localized: "No heart-rate basis"), Brand.grey)
+        case .targetNotUsable:
+            return ("exclamationmark.circle", String(localized: "Target not usable — running fixed"), Brand.grey)
+        case .bandNotSteerable:
+            return ("exclamationmark.triangle.fill", String(localized: "Band not reachable — running fixed"), Brand.danger)
+        case .linkStale:
+            return ("wifi.exclamationmark", String(localized: "Link stale — holding"), Brand.danger)
+        }
     }
 
     /// Arming / waiting for the treadmill — in the same place, at the top.

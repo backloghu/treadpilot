@@ -75,6 +75,8 @@ final class SessionRecorder: ObservableObject {
             onWorkoutEnded?()
         }
 
+        latchStopFacts(client: client)
+
         // If the connection dropped (or we disconnected), the running session closes.
         let connected = if case .ready = client.phase { true } else { false }
         if !connected {
@@ -118,6 +120,55 @@ final class SessionRecorder: ObservableObject {
         padKcalBaseline = client.state.kcal
         lastRawDistanceKm = client.state.distanceKm
         lastRawPadKcal = client.state.kcal
+        // A manual start never goes through `ProgramRunner.beginWorkout()`, so
+        // this is the boundary where a previous workout's heart-rate-ceiling
+        // stop reason — otherwise still standing on the runner — must stop being
+        // readable. See `latchStopFacts` below for why the fresh `activeSession`
+        // above does not already guarantee that on its own.
+        runner?.forgetGovernorStopReason()
+    }
+
+    /// The durable half of findings 138/139/142, plus the boundary that makes it
+    /// actually hold. `ProgramRunner.governorStopReason` and
+    /// `FitShowTreadmillClient.stopNotObeyed` are both live-only: the second is a
+    /// fact about the client, not about any one recording, and the first used to
+    /// be reset only by a program start — so a manual workout run right after a
+    /// governed one inherited its predecessor's reason on the very next tick.
+    /// A fresh `activeSession` every `begin()` does not fix that by itself: this
+    /// method runs on every tick (unconditionally, above), so it would keep
+    /// re-reading the runner's stale field and re-promoting it onto the new
+    /// session regardless of how fresh that session's own record started out.
+    /// `begin()` closes the actual gap, by clearing the runner's field once its
+    /// new session exists; latching both facts onto `activeSession` then does
+    /// the rest: the durable fact gets a renderer that survives past the live
+    /// dashboard (the summary sheet, the history detail), correctly scoped to
+    /// the workout that produced it.
+    private func latchStopFacts(client: FitShowTreadmillClient) {
+        guard let session = activeSession, !session.isDeleted else { return }
+        let next = Self.latchedStopFacts(
+            current: (session.stopReason, session.beltDidNotStop),
+            governorStopReason: runner?.governorStopReason,
+            clientStopNotObeyed: client.stopNotObeyed)
+        session.stopReason = next.reason
+        session.beltDidNotStop = next.beltDidNotStop
+    }
+
+    /// The latch rule as a pure function, so it is tested directly rather than
+    /// only through a live `FitShowTreadmillClient`/`ProgramRunner` pair. Both
+    /// halves are monotonic for the life of one recording: once set, a reason or
+    /// a failure stays, even once `stopNotObeyed` itself is later retired on
+    /// evidence — a stop this workout failed to obey stays a fact about this
+    /// workout. A governor stop reason that is not the heart-rate ceiling (there
+    /// is only the one case today) changes nothing, the same tolerance
+    /// `WorkoutSessionRecord.stopReason` gives an unrecognized stored value.
+    nonisolated static func latchedStopFacts(
+        current: (reason: WorkoutStopReason, beltDidNotStop: Bool),
+        governorStopReason: ProgramRunner.GovernorStopReason?,
+        clientStopNotObeyed: Bool
+    ) -> (reason: WorkoutStopReason, beltDidNotStop: Bool) {
+        let reason: WorkoutStopReason = governorStopReason == .heartRateCeiling
+            ? .heartRateCeiling : current.reason
+        return (reason, current.beltDidNotStop || clientStopNotObeyed)
     }
 
     /// The zones every reader outside the profile screen shows or steers by: the
@@ -140,6 +191,18 @@ final class SessionRecorder: ObservableObject {
     nonisolated static func resolveHeartRate(watchBpm: Int,
                                              handlebarBpm: Int) -> (bpm: Int, fromWatch: Bool) {
         watchBpm > 0 ? (watchBpm, true) : (handlebarBpm, false)
+    }
+
+    /// The band a sample gets, from the runner's *arbitrated* band
+    /// (`ProgramRunner.governedBandBpm`) and never from a segment's stored
+    /// request — the arbitration may have clamped it, and a chart showing a
+    /// band the app was never actually holding would be worse than no chart
+    /// (spec section 4, "Recording and review"). nil — nothing governing this
+    /// second — reads as 0/0, the same default a migrated row carries. Pure,
+    /// so the choice is testable without a treadmill or a store.
+    nonisolated static func targetBand(for governedBandBpm: ClosedRange<Int>?) -> (low: Int, high: Int) {
+        guard let governedBandBpm else { return (0, 0) }
+        return (governedBandBpm.lowerBound, governedBandBpm.upperBound)
     }
 
     private func record(_ state: TreadmillState) {
@@ -189,12 +252,15 @@ final class SessionRecorder: ObservableObject {
             session.programName = programName
         }
 
+        let band = Self.targetBand(for: runner?.governedBandBpm)
         let sample = WorkoutSampleRecord(
             offsetSeconds: session.movingSeconds,
             speedKmh: state.speedKmh,
             inclinePercent: state.inclinePercent,
             heartRate: heartRate,
-            distanceKm: state.distanceKm
+            distanceKm: state.distanceKm,
+            targetHrLow: band.low,
+            targetHrHigh: band.high
         )
         sample.session = session
         context.insert(sample)

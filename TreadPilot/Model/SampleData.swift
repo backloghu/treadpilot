@@ -32,6 +32,19 @@ enum SampleData {
         let peakHR: Int
         let synced: Bool
         let watchFeed: WatchFeed
+        /// The one seeded workout that shows an active heart-rate target band
+        /// (spec section 4, "Recording and review"): `nil` for every plan but
+        /// one, so the history chart's band overlay has exactly one screenshot
+        /// path and `hasTargetHeartRateBand` stays false everywhere else.
+        /// Counted in flat session seconds, the same counter `insert(_:into:)`
+        /// already keeps.
+        // `var`, not `let`: a stored property's default value only becomes an
+        // omittable parameter of the compiler-synthesized memberwise
+        // initializer when the property is mutable (`let`+default is treated
+        // as fixed and drops out of that initializer entirely).
+        var bandSeconds: Range<Int>? = nil
+        var bandLowBpm: Int = 0
+        var bandHighBpm: Int = 0
     }
 
     /// What the Watch feed did during a demo workout. Coverage is counted from
@@ -67,10 +80,16 @@ enum SampleData {
              segments: intervalSegments(rounds: 5, fast: 11.0, easy: 6.0),
              restingHR: 104, peakHR: 168, synced: false,
              watchFeed: .dropout(fromSecond: 420, seconds: 95)),
+        // The two climb segments (offsets 300..<1500) carry a heart-rate
+        // target band: resting 98 / peak 158 puts the climbing effort's
+        // converged heart rate at roughly 148-155 bpm (see the per-second
+        // lag model below), so 135-158 brackets both the climb and the
+        // seconds still converging into it.
         Plan(daysAgo: 2, hour: 18, minute: 40, program: "Hill steady",
              segments: [(300, 5.5, 0), (600, 8.0, 4), (600, 8.5, 6),
                         (420, 8.0, 3), (300, 4.5, 0)],
-             restingHR: 98, peakHR: 158, synced: true, watchFeed: .full),
+             restingHR: 98, peakHR: 158, synced: true, watchFeed: .full,
+             bandSeconds: 300..<1500, bandLowBpm: 135, bandHighBpm: 158),
         Plan(daysAgo: 5, hour: 6, minute: 55, program: nil,
              segments: [(180, 5.0, 0), (900, 9.2, 1), (240, 4.5, 0)],
              restingHR: 96, peakHR: 154, synced: true,
@@ -103,7 +122,7 @@ enum SampleData {
 
     static func seed(into context: ModelContext) {
         wipe(context)
-        seedProfile()
+        seedDefaults()
         for plan in plans { insert(plan, into: context) }
         seedPrograms(into: context)
         try? context.save()
@@ -117,14 +136,28 @@ enum SampleData {
         try? context.delete(model: CustomProgram.self)
     }
 
-    private static func seedProfile() {
+    /// The `UserDefaults`-only half of the seeding. Split out of `seed(into:)`
+    /// so it can run before any `ModelContext` exists — from the app's own
+    /// `init()`, before the view hierarchy (and its `@AppStorage`/init-time
+    /// reads of these same keys) ever appears — while `seed(into:)` still
+    /// calls it too, so a direct call stays complete on its own. Idempotent:
+    /// calling it twice on the same launch just writes the same values again.
+    static func seedDefaults() {
         let defaults = UserDefaults.standard
         defaults.set(78.0, forKey: "profile.weight")
         defaults.set(182.0, forKey: "profile.height")
         defaults.set(41, forKey: "profile.age")
         defaults.set(true, forKey: "profile.isMale")
-        // Keep the disclaimer from covering the screenshots.
-        defaults.set(true, forKey: "disclaimer.accepted")
+        // Keep the disclaimer from covering the screenshots: the same versioned
+        // key ContentView gates on, so a version bump cannot leave this behind.
+        defaults.set(DisclaimerView.currentVersion, forKey: "disclaimer.acceptedVersion")
+        // Heart-rate control needs both the capability flag `ProgramRunner`
+        // reads once at init and the one-time confirmation latch
+        // `ProfileView` gates the toggle on (finding 120) — without the
+        // latch, a seeded run would still be one dialog away from a governed
+        // segment, and no screenshot flow can dismiss it.
+        defaults.set(true, forKey: ProgramRunner.heartRateControlDefaultsKey)
+        defaults.set(true, forKey: "heartRateControl.confirmedOnce")
     }
 
     private static func insert(_ plan: Plan, into context: ModelContext) {
@@ -180,11 +213,14 @@ enum SampleData {
                 // A sample every five seconds: plenty for the chart, and it does
                 // not bloat the sample store needlessly.
                 if second % 5 == 0 {
+                    let inBand = plan.bandSeconds?.contains(second) ?? false
                     let sample = WorkoutSampleRecord(offsetSeconds: second,
                                                      speedKmh: speed,
                                                      inclinePercent: segment.incline,
                                                      heartRate: bpm,
-                                                     distanceKm: distanceKm)
+                                                     distanceKm: distanceKm,
+                                                     targetHrLow: inBand ? plan.bandLowBpm : 0,
+                                                     targetHrHigh: inBand ? plan.bandHighBpm : 0)
                     sample.timestamp = start.addingTimeInterval(TimeInterval(second))
                     sample.session = session
                     context.insert(sample)
@@ -248,6 +284,36 @@ enum SampleData {
             hills.segments.append(record)
         }
         context.insert(hills)
+
+        // A heart-rate driven program, so the feature it seeds a Watch feed
+        // for has something to run in demo mode: a warm-up, a governed zone
+        // segment with a sane band and a deliberately modest speed corridor
+        // (`HeartRateTarget.seeded`'s own default), and a recovery segment
+        // that walks until the heart rate comes down, capped by its mandatory
+        // time limit — the honest shape of the feature, not a flattering one.
+        let hrZone = CustomProgram(name: "Heart-rate zone")
+        let warmup = CustomSegmentRecord(orderIndex: 0, name: "Warm-up",
+                                         durationSeconds: 180,
+                                         targetSpeedKmh: 5.0, targetIncline: 0)
+        warmup.program = hrZone
+        hrZone.segments.append(warmup)
+
+        let zone = CustomSegmentRecord(orderIndex: 1, name: "Zone 3",
+                                       durationSeconds: 600,
+                                       targetSpeedKmh: 7.0, targetIncline: 0)
+        zone.target = .heartRate(.seeded(startSpeedKmh: 7.0, startIncline: 0))
+        zone.program = hrZone
+        hrZone.segments.append(zone)
+
+        let recovery = CustomSegmentRecord(orderIndex: 2, name: "Recovery",
+                                           durationSeconds: 300,
+                                           targetSpeedKmh: 4.5, targetIncline: 0)
+        recovery.goal = .untilHeartRateBelow(
+            bpm: WorkoutSegment.defaultGoalHeartRateBelowBpm, maxSeconds: 300)
+        recovery.program = hrZone
+        hrZone.segments.append(recovery)
+
+        context.insert(hrZone)
     }
 }
 

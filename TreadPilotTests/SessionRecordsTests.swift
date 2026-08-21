@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Backlog Fejlesztő Kft. — https://treadpilot.app
 
+import SwiftData
 import XCTest
 @testable import TreadPilot
 
@@ -104,5 +105,98 @@ final class SessionRecordsTests: XCTestCase {
             .watchHeartRateCoverageWholePercent, 75)
         XCTAssertEqual(session(movingSeconds: 3, watchSeconds: 2)
             .watchHeartRateCoverageWholePercent, 67)
+    }
+
+    // MARK: - Finding 115: the sample's own target band
+
+    private func makeContext() throws -> ModelContext {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(
+            for: WorkoutSessionRecord.self, WorkoutSampleRecord.self,
+            configurations: configuration)
+        return ModelContext(container)
+    }
+
+    func testASamplesTargetBandSurvivesASaveAndAFetch() throws {
+        let context = try makeContext()
+        let session = WorkoutSessionRecord(startedAt: Date(), deviceName: "Test", programName: nil)
+        context.insert(session)
+        let sample = WorkoutSampleRecord(offsetSeconds: 1, speedKmh: 8.0, inclinePercent: 0,
+                                         heartRate: 150, distanceKm: 0.002,
+                                         targetHrLow: 144, targetHrHigh: 155)
+        sample.session = session
+        context.insert(sample)
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<WorkoutSampleRecord>())
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.targetHrLow, 144)
+        XCTAssertEqual(fetched.first?.targetHrHigh, 155)
+        XCTAssertTrue(fetched.first?.hasTargetHeartRateBand ?? false)
+    }
+
+    func testASampleDefaultsToNoBandForTheLightweightMigration() {
+        // The precedent this table follows is `WorkoutSampleRecord.timestamp`:
+        // omitting the new arguments is what a pre-1.1 row decodes as, and it
+        // must read as "nothing was governing", not a band that happens to
+        // start at 0 bpm.
+        let sample = WorkoutSampleRecord(offsetSeconds: 1, speedKmh: 8.0, inclinePercent: 0,
+                                         heartRate: 150, distanceKm: 0.002)
+        XCTAssertEqual(sample.targetHrLow, 0)
+        XCTAssertEqual(sample.targetHrHigh, 0)
+        XCTAssertFalse(sample.hasTargetHeartRateBand)
+    }
+
+    // MARK: - Finding 138: the durable stop reason
+
+    func testANewSessionDefaultsToNoStopReasonAndNoFailure() {
+        // Both the lightweight-migration default for a pre-1.1 row and the
+        // starting point for a fresh recording — an ordinary end looks the same
+        // either way.
+        let record = WorkoutSessionRecord(startedAt: Date(), deviceName: "Test", programName: nil)
+        XCTAssertEqual(record.stopReason, .none)
+        XCTAssertFalse(record.beltDidNotStop)
+    }
+
+    func testTheStopReasonRoundTripsThroughItsStoredRawValue() {
+        let record = WorkoutSessionRecord(startedAt: Date(), deviceName: "Test", programName: nil)
+        record.stopReason = .heartRateCeiling
+        XCTAssertEqual(record.stopReasonRaw, WorkoutStopReason.heartRateCeiling.rawValue)
+        XCTAssertEqual(record.stopReason, .heartRateCeiling)
+    }
+
+    func testAnUnrecognizedStoredReasonReadsAsNoneRatherThanTrapping() {
+        // A row written by a future build with a reason this one does not know —
+        // the same tolerance `CustomSegmentRecord.goal` gives an unknown
+        // discriminator.
+        let record = WorkoutSessionRecord(startedAt: Date(), deviceName: "Test", programName: nil)
+        record.stopReasonRaw = "someFutureReason"
+        XCTAssertEqual(record.stopReason, .none)
+    }
+
+    func testAStopReasonAndAFailureToStopSurviveASaveAndAFetch() throws {
+        let context = try makeContext()
+        let session = WorkoutSessionRecord(startedAt: Date(), deviceName: "Test", programName: nil)
+        session.stopReason = .heartRateCeiling
+        session.beltDidNotStop = true
+        context.insert(session)
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<WorkoutSessionRecord>())
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.stopReason, .heartRateCeiling)
+        XCTAssertEqual(fetched.first?.beltDidNotStop, true)
+    }
+
+    func testAnUngovernedSampleAlongsideAGovernedOneDrawsNothingForItself() {
+        // A mixed program's fixed segment, recorded next to a governed one:
+        // each second answers for itself.
+        let governed = WorkoutSampleRecord(offsetSeconds: 1, speedKmh: 8.0, inclinePercent: 0,
+                                           heartRate: 150, distanceKm: 0.002,
+                                           targetHrLow: 130, targetHrHigh: 148)
+        let ungoverned = WorkoutSampleRecord(offsetSeconds: 2, speedKmh: 8.0, inclinePercent: 0,
+                                             heartRate: 151, distanceKm: 0.004)
+        XCTAssertTrue(governed.hasTargetHeartRateBand)
+        XCTAssertFalse(ungoverned.hasTargetHeartRateBand)
     }
 }

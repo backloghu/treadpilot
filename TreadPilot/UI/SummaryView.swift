@@ -13,12 +13,21 @@ struct SummaryView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    // Finding 139: this sheet used to present a green checkmark
+                    // over both live safety banners, so a stop the belt never
+                    // obeyed could be replaced on screen by a completion tick.
+                    // The durable facts are rendered here, inside the sheet
+                    // itself, so nothing presented on top of anything else can
+                    // hide them — and the heading below only ever claims a
+                    // clean finish when one actually happened.
+                    SessionStopReasonBanners(session: session)
+
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("WORKOUT COMPLETE").tracking(1.5)
+                        Image(systemName: headline.icon)
+                        Text(headline.text).tracking(1.5)
                     }
                     .font(Brand.display(14, .semibold))
-                    .foregroundStyle(Brand.accent)
+                    .foregroundStyle(headline.color)
 
                     SessionStatsGrid(session: session)
 
@@ -41,5 +50,16 @@ struct SummaryView: View {
             .toolbarBackground(.visible, for: .navigationBar)
         }
         .preferredColorScheme(.dark)
+    }
+
+    /// A belt the app never saw stop is not a clean finish, whatever else the
+    /// workout accomplished (finding 139). A stop for the heart-rate ceiling
+    /// that *was* obeyed keeps the ordinary heading — `SessionStopReasonBanners`
+    /// above already says why it ended early — because the app did exactly what
+    /// it was supposed to.
+    private var headline: (icon: String, text: String, color: Color) {
+        session.beltDidNotStop
+            ? ("exclamationmark.triangle.fill", String(localized: "WORKOUT ENDED"), Brand.danger)
+            : ("checkmark.circle.fill", String(localized: "WORKOUT COMPLETE"), Brand.accent)
     }
 }

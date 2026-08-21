@@ -85,6 +85,24 @@ struct BrandEyebrow: View {
     }
 }
 
+/// Finding 88: the unmissable banner for `client.stopNotObeyed`. One view
+/// rather than two copies in `HomeView` and `DashboardView` — both need it,
+/// because it has to survive an ordinary navigation between the two screens,
+/// not just live on the screen the stop was requested from.
+struct SafetyStopBanner: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text(Safety.stopNotObeyed)
+        }
+        .font(Brand.display(12, .semibold))
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Brand.danger, in: RoundedRectangle(cornerRadius: Brand.radius))
+    }
+}
+
 /// Content box: a slightly raised background with a 1px grid-line border.
 struct BrandBox: ViewModifier {
     var padding: CGFloat = 16

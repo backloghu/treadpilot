@@ -3,9 +3,19 @@
 
 import SwiftUI
 
-/// Safety notice shown mandatorily on first launch.
+/// Safety notice shown mandatorily on first launch, and re-presentable later.
 /// The app controls a real treadmill — we do not let the user past this.
 struct DisclaimerView: View {
+    /// Bumped whenever the content changes in a way that needs re-consent, not
+    /// on every wording tweak. `ContentView` stores the version the user last
+    /// accepted and re-shows this, gated on `fullScreenCover`, whenever the
+    /// stored value is lower — which is also what makes it reachable for a 1.0
+    /// upgrader for free: 1.0 stored a plain `Bool` at a different key, so the
+    /// versioned key defaults to 0 for every existing installation (finding
+    /// 132). 1 marks this revision, which adds the "fitness feature, not a
+    /// medical device" sentence below.
+    static let currentVersion = 1
+
     let onAccept: () -> Void
 
     var body: some View {
@@ -24,6 +34,7 @@ struct DisclaimerView: View {
                     bullet(String(localized: "Always clip on the treadmill's safety key before use."))
                     bullet(String(localized: "If the connection drops, the belt may keep running at the last set speed — in an emergency the treadmill's own Stop button and the safety key are your primary protection."))
                     bullet(String(localized: "Never let a child use the app or the treadmill unsupervised."))
+                    bullet(String(localized: "This is a fitness feature, not a medical device: heart-rate control estimates a target zone and steers toward it, it does not diagnose, monitor or treat any condition."))
                     bullet(String(localized: "You use this app at your own risk. If you have any health concerns, consult a doctor before working out."))
                 }
                 .brandBox()

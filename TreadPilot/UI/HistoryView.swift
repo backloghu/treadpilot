@@ -112,6 +112,8 @@ struct SessionDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                SessionStopReasonBanners(session: session)
+
                 SessionStatsGrid(session: session)
 
                 // Retroactive Health sync: if the end-of-workout save failed (or
@@ -141,13 +143,31 @@ struct SessionDetailView: View {
                     if samples.contains(where: { $0.heartRate > 0 }) {
                         VStack(alignment: .leading, spacing: 10) {
                             BrandEyebrow(String(localized: "Heart rate (bpm)"))
-                            Chart(samples.filter { $0.heartRate > 0 }, id: \.offsetSeconds) { sample in
-                                LineMark(
-                                    x: .value("s", sample.offsetSeconds),
-                                    y: .value("bpm", sample.heartRate)
-                                )
-                                .foregroundStyle(Brand.danger)
-                                .interpolationMethod(.monotone)
+                            // The band behind the line, drawn first so the trace sits on
+                            // top of it — "so one screenshot shows whether the governor
+                            // held what it promised" (spec section 4). `RectangleMark`,
+                            // not an area shared with the line: it draws each run as its
+                            // own independent shape, so a stretch with no band (a fixed
+                            // segment, a hand-back) is a real gap and not a line
+                            // interpolated straight across it.
+                            Chart {
+                                ForEach(TargetBandChart.runs(in: samples), id: \.startOffsetSeconds) { run in
+                                    RectangleMark(
+                                        xStart: .value("s", run.startOffsetSeconds),
+                                        xEnd: .value("s", run.endOffsetSeconds),
+                                        yStart: .value("bpm", run.lowBpm),
+                                        yEnd: .value("bpm", run.highBpm)
+                                    )
+                                    .foregroundStyle(Brand.accent.opacity(0.15))
+                                }
+                                ForEach(samples.filter { $0.heartRate > 0 }, id: \.offsetSeconds) { sample in
+                                    LineMark(
+                                        x: .value("s", sample.offsetSeconds),
+                                        y: .value("bpm", sample.heartRate)
+                                    )
+                                    .foregroundStyle(Brand.danger)
+                                    .interpolationMethod(.monotone)
+                                }
                             }
                             .chartXAxis { AxisMarks { _ in AxisGridLine().foregroundStyle(Brand.gridLine); AxisValueLabel().foregroundStyle(Brand.grey) } }
                             .chartYAxis { AxisMarks { _ in AxisGridLine().foregroundStyle(Brand.gridLine); AxisValueLabel().foregroundStyle(Brand.grey) } }
@@ -176,6 +196,50 @@ struct SessionDetailView: View {
         guard samples.count > limit else { return samples }
         let step = samples.count / limit + 1
         return samples.enumerated().compactMap { $0.offset % step == 0 ? $0.element : nil }
+    }
+}
+
+/// The 97% ceiling's own reason, styled identically to `SafetyStopBanner`
+/// (`Theme.swift`) so the two read as one family wherever they appear
+/// together. `DashboardView` renders it live from the session's own stop
+/// reason (finding 142), and `SessionStopReasonBanners` below pulls it into
+/// the summary sheet and the history detail too (finding 138), where it has
+/// to survive past the live dashboard's own lifetime.
+struct HeartRateCeilingStopBanner: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "heart.slash.circle.fill")
+            Text(Safety.heartRateCeilingStoppedTheBelt)
+        }
+        .font(Brand.display(12, .semibold))
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Brand.danger, in: RoundedRectangle(cornerRadius: Brand.radius))
+    }
+}
+
+/// The durable stop facts (findings 138/139), shown wherever a workout is
+/// reviewed after the fact — the end-of-workout summary sheet and this history
+/// detail — since both live banners this mirrors (`DashboardView`'s) unmount
+/// with the screen that produced them. Reads `session.stopReason` /
+/// `session.beltDidNotStop` rather than any live client or runner state, so it
+/// renders identically whether the session closed a second ago or a month ago.
+struct SessionStopReasonBanners: View {
+    let session: WorkoutSessionRecord
+
+    var body: some View {
+        // A failure to stop first: it is the more serious fact, and — for
+        // `SummaryView` — the one finding 139 requires cannot be hidden behind
+        // a "workout complete" checkmark.
+        VStack(spacing: 8) {
+            if session.beltDidNotStop {
+                SafetyStopBanner()
+            }
+            if session.stopReason == .heartRateCeiling {
+                HeartRateCeilingStopBanner()
+            }
+        }
     }
 }
 
@@ -253,5 +317,46 @@ enum SessionFormat {
     /// the unit identically and the catalog gains no key beyond `%lld bpm`.
     static func bpm(_ value: Int) -> String {
         String(localized: "\(value) bpm")
+    }
+}
+
+/// One contiguous stretch of samples that carried the same target band.
+struct TargetBandRun: Equatable {
+    let startOffsetSeconds: Int
+    let endOffsetSeconds: Int
+    let lowBpm: Int
+    let highBpm: Int
+}
+
+/// Turns a sample series into the runs `SessionDetailView` draws behind the
+/// heart-rate chart (spec section 4, "Recording and review"). Pure and
+/// SwiftUI-free, so the grouping is testable without a chart.
+enum TargetBandChart {
+    /// Splits on every second with no band and on every change of the band
+    /// itself, so a `RectangleMark` per run has a real gap for a fixed
+    /// segment or a hand-back instead of one shape stretched across it — and
+    /// a workout that was never governed returns no runs at all.
+    static func runs(in samples: [WorkoutSampleRecord]) -> [TargetBandRun] {
+        var runs: [TargetBandRun] = []
+        var current: TargetBandRun?
+        for sample in samples {
+            guard sample.hasTargetHeartRateBand else {
+                if let run = current { runs.append(run) }
+                current = nil
+                continue
+            }
+            if let run = current, run.lowBpm == sample.targetHrLow, run.highBpm == sample.targetHrHigh {
+                current = TargetBandRun(startOffsetSeconds: run.startOffsetSeconds,
+                                        endOffsetSeconds: sample.offsetSeconds,
+                                        lowBpm: run.lowBpm, highBpm: run.highBpm)
+            } else {
+                if let run = current { runs.append(run) }
+                current = TargetBandRun(startOffsetSeconds: sample.offsetSeconds,
+                                        endOffsetSeconds: sample.offsetSeconds,
+                                        lowBpm: sample.targetHrLow, highBpm: sample.targetHrHigh)
+            }
+        }
+        if let run = current { runs.append(run) }
+        return runs
     }
 }

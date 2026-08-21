@@ -25,6 +25,30 @@ struct HomeView: View {
         programOptions.first(where: { $0.id == selectedProgramId }) ?? WorkoutProgram.builtIn[0]
     }
 
+    /// Finding 131: `ProgramRunner.arm` already refuses silently while this is
+    /// true — tap START PROGRAM, confirm, and nothing happened, with no state
+    /// change, no message and no disabled button. The same shared predicate
+    /// `arm` itself is judged by, so the button can never promise a start the
+    /// runner is about to refuse anyway.
+    private var startsAreBlockedByStop: Bool {
+        ProgramRunner.isRefusedByOutstandingStop(isStopOutstanding: client.isStopOutstanding,
+                                                 stopNotObeyed: client.stopNotObeyed)
+    }
+
+    /// The reason, for the one case the global `SafetyStopBanner` does not cover:
+    /// while a stop is merely outstanding (still within its own grace window) and
+    /// not yet a failure, nothing else on this screen says why the buttons below
+    /// went dim. Once `stopNotObeyed` is set, `ContentView` already shows that
+    /// banner above every screen, this one included.
+    private var stoppingIndicator: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "stop.circle")
+            Text("STOPPING THE BELT…").tracking(1)
+        }
+        .font(Brand.display(10, .semibold))
+        .foregroundStyle(Brand.fgMid)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -50,7 +74,13 @@ struct HomeView: View {
         .toolbarBackground(Brand.bgDeep, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .onAppear {
-            // Do not let a finished program's leftovers live on on the home screen.
+            // Do not let a finished program's leftovers live on on the home screen —
+            // but never while a stop the app asked for is still outstanding: an
+            // ordinary navigation here must not look like the app giving up on its
+            // own stop (spec section 4, "A stop the app asked for outlives the
+            // program that asked" — this cleanup is exactly the kind of thing that
+            // rule exists to keep from touching it).
+            guard !client.stopNotObeyed else { return }
             if case .finished = runner.runnerState { runner.stop() }
         }
         .confirmationDialog("Start the belt?",
@@ -73,8 +103,13 @@ struct HomeView: View {
         } message: {
             if let first = selectedProgram.segments.first {
                 // One sentence from one key: this gives the translator context,
-                // and the word order can be rearranged freely per language.
-                Text("The belt starts on its own after a \(ProgramRunner.armCountdownSeconds)-second countdown. First segment: \(first.targetSpeedKmh, specifier: "%.1f") km/h at \(first.targetIncline)% incline. \(Safety.standClear)")
+                // and the word order can be rearranged freely per language. Reads
+                // the target through SegmentFormat.target(_:) — the same helper
+                // DashboardView's own next-segment preview uses (finding 105/385)
+                // — so a heart-rate-governed first segment previews its band here
+                // too, instead of always claiming a fixed speed the app may not
+                // actually hold.
+                Text("The belt starts on its own after a \(ProgramRunner.armCountdownSeconds)-second countdown. First segment: \(SegmentFormat.target(first.target)). \(Safety.standClear)")
             }
         }
     }
@@ -104,12 +139,17 @@ struct HomeView: View {
             Text("You set the speed and the incline during the workout.")
                 .font(.footnote)
                 .foregroundStyle(Brand.fgDim)
+            if client.isStopOutstanding && !client.stopNotObeyed {
+                stoppingIndicator
+            }
             Button {
                 showManualStartConfirmation = true
             } label: {
                 HStack { Image(systemName: "play.fill"); Text("MANUAL START").tracking(1.5) }
             }
             .buttonStyle(BrandCTAStyle())
+            .disabled(startsAreBlockedByStop)
+            .opacity(startsAreBlockedByStop ? 0.4 : 1)
         }
         .brandBox()
     }
@@ -148,12 +188,21 @@ struct HomeView: View {
                  + String(format: " · ⌀ %.1f km/h", selectedProgram.averageSpeedKmh))
                 .font(.caption)
                 .foregroundStyle(Brand.grey)
+            if client.isStopOutstanding && !client.stopNotObeyed {
+                stoppingIndicator
+            }
             Button {
+                // The heart-rate confirmation, if this program needs one, has
+                // already been asked when the capability itself was switched
+                // on (`ProfileView`, finding 120) — this start path can trust
+                // it and go straight to the ordinary program confirmation.
                 showProgramStartConfirmation = true
             } label: {
                 HStack { Image(systemName: "list.bullet"); Text("START PROGRAM").tracking(1.5) }
             }
             .buttonStyle(BrandStrokeStyle(color: Brand.accent))
+            .disabled(startsAreBlockedByStop)
+            .opacity(startsAreBlockedByStop ? 0.4 : 1)
         }
         .brandBox()
     }

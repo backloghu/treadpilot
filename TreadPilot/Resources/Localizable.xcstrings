@@ -2577,6 +2577,23 @@
         }
       }
     },
+    "WORKOUT ENDED": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WORKOUT ENDED"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EDZÉS VÉGE"
+          }
+        }
+      }
+    },
     "Walk": {
       "extractionState": "manual",
       "localizations": {
@@ -2861,6 +2878,720 @@
           "stringUnit": {
             "state": "translated",
             "value": "Health: %@ — alacsonyabb a becsültnél; érdemes felülbírálni"
+          }
+        }
+      }
+    },
+    "The belt did not stop. Stop it now at the console.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The belt did not stop. Stop it now at the console."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A szalag nem állt meg. Állítsd meg most a konzolon."
+          }
+        }
+      }
+    },
+    "With heart-rate control on, the app changes the belt's speed or incline by itself to hold your target zone — without you touching anything. Changing speed or incline at the console always takes control back for the rest of that segment.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With heart-rate control on, the app changes the belt's speed or incline by itself to hold your target zone — without you touching anything. Changing speed or incline at the console always takes control back for the rest of that segment."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ha a pulzusvezérlés be van kapcsolva, az app önállóan módosítja a szalag sebességét vagy dőlését, hogy megtartsa a célzónádat — anélkül, hogy hozzányúlnál bármihez. A sebesség vagy a dőlés módosítása a konzolon mindig visszaveszi az irányítást a szegmens hátralévő részében."
+          }
+        }
+      }
+    },
+    "The belt was stopped because your heart rate reached its limit.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The belt was stopped because your heart rate reached its limit."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A szalag leállt, mert a pulzusod elérte a határértékét."
+          }
+        }
+      }
+    },
+    "This is a fitness feature, not a medical device: heart-rate control estimates a target zone and steers toward it, it does not diagnose, monitor or treat any condition.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is a fitness feature, not a medical device: heart-rate control estimates a target zone and steers toward it, it does not diagnose, monitor or treat any condition."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ez egy fitneszfunkció, nem orvostechnikai eszköz: a pulzusvezérlés egy célzónát becsül és afelé vezérel, nem diagnosztizál, nem monitoroz és nem kezel semmilyen állapotot."
+          }
+        }
+      }
+    },
+    "Heart-rate control changes belt speed by itself": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heart-rate control changes belt speed by itself"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A pulzusvezérlés önállóan módosítja a szalag sebességét"
+          }
+        }
+      }
+    },
+    "I understand": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I understand"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Értem"
+          }
+        }
+      }
+    },
+    "Heart-rate control": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heart-rate control"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulzusvezérlés"
+          }
+        }
+      }
+    },
+    "On a heart-rate driven segment, the app changes the belt's speed or incline by itself to hold your target zone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On a heart-rate driven segment, the app changes the belt's speed or incline by itself to hold your target zone."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Egy pulzusvezérelt szegmensben az app önállóan módosítja a szalag sebességét vagy dőlését, hogy megtartsa a célzónádat."
+          }
+        }
+      }
+    },
+    "Off by default. You can always take over by changing speed or incline at the console — control then stays yours for the rest of the segment.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off by default. You can always take over by changing speed or incline at the console — control then stays yours for the rest of the segment."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alapértelmezetten ki van kapcsolva. Bármikor átvehető az irányítás a sebesség vagy a dőlés módosításával a konzolon — az irányítás ezután a szegmens hátralévő részében nálad marad."
+          }
+        }
+      }
+    },
+    "STOPPING THE BELT…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "STOPPING THE BELT…"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A SZALAG LEÁLL…"
+          }
+        }
+      }
+    },
+    "(reduced)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(reduced)"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(csökkentett)"
+          }
+        }
+      }
+    },
+    "Holding target": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Holding target"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cél tartása"
+          }
+        }
+      }
+    },
+    "Adjusting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjusting"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Módosítás"
+          }
+        }
+      }
+    },
+    "Slowing down — heart rate high": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slowing down — heart rate high"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lassítás — magas pulzus"
+          }
+        }
+      }
+    },
+    "Target not reached — holding steady": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target not reached — holding steady"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cél nem elérve — egyenletes tartás"
+          }
+        }
+      }
+    },
+    "No fresh heart rate — holding": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No fresh heart rate — holding"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nincs friss pulzusadat — tartás"
+          }
+        }
+      }
+    },
+    "Feed lost — reduced speed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Feed lost — reduced speed"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Megszakadt a pulzusjel — csökkentett sebesség"
+          }
+        }
+      }
+    },
+    "You're in control": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're in control"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te irányítasz"
+          }
+        }
+      }
+    },
+    "Stopping — heart-rate limit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopping — heart-rate limit"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leállás — pulzushatárérték"
+          }
+        }
+      }
+    },
+    "Heart-rate control off": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heart-rate control off"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulzusvezérlés kikapcsolva"
+          }
+        }
+      }
+    },
+    "No heart-rate basis": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No heart-rate basis"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nincs pulzusalap"
+          }
+        }
+      }
+    },
+    "Target not usable — running fixed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target not usable — running fixed"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cél nem használható — rögzített módban fut"
+          }
+        }
+      }
+    },
+    "Band not reachable — running fixed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Band not reachable — running fixed"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sáv nem elérhető — rögzített módban fut"
+          }
+        }
+      }
+    },
+    "Link stale — holding": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link stale — holding"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elavult kapcsolat — tartás"
+          }
+        }
+      }
+    },
+    "Recovery": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovery"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pihenő"
+          }
+        }
+      }
+    },
+    "Threshold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Threshold"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Küszöb"
+          }
+        }
+      }
+    },
+    "Time cap": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Time cap"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Időkorlát"
+          }
+        }
+      }
+    },
+    "Control": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vezérlés"
+          }
+        }
+      }
+    },
+    "Fixed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fixed"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rögzített"
+          }
+        }
+      }
+    },
+    "Steer with": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steer with"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vezérlés alapja"
+          }
+        }
+      }
+    },
+    "Start speed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start speed"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kezdő sebesség"
+          }
+        }
+      }
+    },
+    "Start incline": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start incline"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kezdő dőlés"
+          }
+        }
+      }
+    },
+    "Band low": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Band low"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alsó sáv"
+          }
+        }
+      }
+    },
+    "Band high": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Band high"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Felső sáv"
+          }
+        }
+      }
+    },
+    "Min speed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Min speed"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Min sebesség"
+          }
+        }
+      }
+    },
+    "Fallback speed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fallback speed"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biztonsági sebesség"
+          }
+        }
+      }
+    },
+    "Min incline": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Min incline"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Min dőlés"
+          }
+        }
+      }
+    },
+    "Max incline": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max incline"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max dőlés"
+          }
+        }
+      }
+    },
+    "Heart-rate target": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heart-rate target"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulzuscél"
+          }
+        }
+      }
+    },
+    "The app holds the band by moving speed inside this corridor. If the heart-rate feed is lost for too long, it drops to the fallback speed and holds it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app holds the band by moving speed inside this corridor. If the heart-rate feed is lost for too long, it drops to the fallback speed and holds it."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Az app a sebesség ezen a tartományon belüli mozgatásával tartja a sávot. Ha a pulzusjel túl sokáig megszakad, az app leesik a biztonsági sebességre, és tartja azt."
+          }
+        }
+      }
+    },
+    "The app holds the band by moving incline inside this corridor. If the heart-rate feed is lost for too long, incline drops to the treadmill's own minimum.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app holds the band by moving incline inside this corridor. If the heart-rate feed is lost for too long, incline drops to the treadmill's own minimum."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Az app a dőlés ezen a tartományon belüli mozgatásával tartja a sávot. Ha a pulzusjel túl sokáig megszakad, a dőlés lecsökken a futópad saját minimumára."
+          }
+        }
+      }
+    },
+    "The belt starts on its own after a %lld-second countdown. First segment: %@. %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The belt starts on its own after a %lld-second countdown. First segment: %@. %@"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A szalag %lld másodperces visszaszámlálás után magától elindul. Első szegmens: %@. %@"
           }
         }
       }

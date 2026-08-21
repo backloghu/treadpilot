@@ -6,6 +6,22 @@ import SwiftUI
 /// Body data for the calorie calculation: HealthKit values with the option to override.
 struct ProfileView: View {
     @EnvironmentObject private var profile: ProfileStore
+    @EnvironmentObject private var runner: ProgramRunner
+    @State private var showHeartRateControlConfirmation = false
+    /// The "asked once" flag (spec section 4): a first switch-on is confirmed a
+    /// single time for the life of the app. Finding 120: this used to gate one
+    /// *start path* rather than the capability itself, so a program begun with
+    /// the setting off (correctly unconfirmed) and switched on mid-workout from
+    /// this screen reached a governed segment having never asked. Gating the
+    /// toggle here instead means `runner.heartRateControlEnabled` cannot become
+    /// true by any route without this dialog having been accepted first, so a
+    /// start path can simply trust it.
+    @AppStorage("heartRateControl.confirmedOnce") private var hasConfirmedHeartRateControl = false
+    /// Finding 132: the disclaimer is otherwise reachable exactly once, on first
+    /// launch or on upgrade to a revision that needs re-consent. This does not
+    /// touch the stored acceptance — it only reopens the same view to read again,
+    /// dismissing back to the profile rather than re-confirming anything.
+    @State private var showDisclaimer = false
 
     var body: some View {
         List {
@@ -83,6 +99,26 @@ struct ProfileView: View {
             }
 
             Section {
+                Toggle(isOn: heartRateControlBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Heart-rate control")
+                            .foregroundStyle(.white)
+                        Text("On a heart-rate driven segment, the app changes the belt's speed or incline by itself to hold your target zone.")
+                            .font(.caption2)
+                            .foregroundStyle(Brand.grey)
+                    }
+                }
+                .tint(Brand.accent)
+                .listRowBackground(Brand.bgElev1)
+            } header: {
+                BrandEyebrow(String(localized: "Heart-rate control"))
+            } footer: {
+                Text("Off by default. You can always take over by changing speed or incline at the console — control then stays yours for the rest of the segment.")
+                    .font(.footnote)
+                    .foregroundStyle(Brand.grey)
+            }
+
+            Section {
                 Button {
                     Task { await profile.refreshFromHealthKit() }
                 } label: {
@@ -112,6 +148,21 @@ struct ProfileView: View {
                         .listRowBackground(Brand.bgElev1)
                 }
             }
+
+            Section {
+                Button {
+                    showDisclaimer = true
+                } label: {
+                    Label {
+                        Text(String(localized: "Safety information").uppercased())
+                            .tracking(1.2).font(Brand.display(12, .semibold))
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle")
+                    }
+                    .foregroundStyle(Brand.fgDim)
+                }
+                .listRowBackground(Brand.bgElev1)
+            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -127,6 +178,45 @@ struct ProfileView: View {
         .toolbarBackground(Brand.bgDeep, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .task { await profile.refreshFromHealthKit() }
+        // Gates the capability itself (finding 120), not a start path: accepting
+        // this only proceeds to actually switching the toggle on, the same
+        // shape `HomeView`'s own one-time gates use elsewhere in this feature.
+        .confirmationDialog("Heart-rate control changes belt speed by itself",
+                            isPresented: $showHeartRateControlConfirmation,
+                            titleVisibility: .visible) {
+            Button("I understand") {
+                hasConfirmedHeartRateControl = true
+                runner.heartRateControlEnabled = true
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(Safety.heartRateControlConfirmation)
+        }
+        .fullScreenCover(isPresented: $showDisclaimer) {
+            DisclaimerView { showDisclaimer = false }
+        }
+    }
+
+    /// Turning the toggle on is only ever visible once this dialog has been
+    /// accepted — turning it off always takes effect at once, matching
+    /// `ProgramRunner.heartRateControlEnabled`'s own didSet, which only ever
+    /// *stops* writes synchronously. Rejecting the dialog leaves
+    /// `runner.heartRateControlEnabled` untouched, so the switch visibly snaps
+    /// back to off.
+    private var heartRateControlBinding: Binding<Bool> {
+        Binding(
+            get: { runner.heartRateControlEnabled },
+            set: { newValue in
+                guard newValue else {
+                    runner.heartRateControlEnabled = false
+                    return
+                }
+                if hasConfirmedHeartRateControl {
+                    runner.heartRateControlEnabled = true
+                } else {
+                    showHeartRateControlConfirmation = true
+                }
+            })
     }
 
     /// - Parameter healthValueIsEffective: False when resolution rejected the

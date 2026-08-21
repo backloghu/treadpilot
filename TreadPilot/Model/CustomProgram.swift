@@ -55,20 +55,37 @@ final class CustomProgram {
     static func copy(of program: WorkoutProgram, name: String) -> CustomProgram {
         let custom = CustomProgram(name: name)
         for (index, segment) in program.segments.enumerated() {
-            let record = CustomSegmentRecord(
-                orderIndex: index,
-                name: segment.name,
-                durationSeconds: segment.plannedDurationSeconds,
-                targetSpeedKmh: segment.targetSpeedKmh,
-                targetIncline: segment.targetIncline
-            )
-            // After the targets, because a distance goal derives its stored
-            // planned duration from the segment's speed.
-            record.goal = segment.goal
+            let record = CustomSegmentRecord.copying(segment, orderIndex: index)
             record.program = custom
             custom.segments.append(record)
         }
         return custom
+    }
+
+    /// Duplicating one of this program's own segments, in place.
+    ///
+    /// Finding 86: `ProgramEditorView.duplicate(_:)` used to assemble the copy by
+    /// hand a second time — the same call site finding 71 fixed once already —
+    /// and it is also the wrong layer for it: a unit test that wants to exercise
+    /// duplication has to construct a `View` with no `ModelContext` in its
+    /// environment to call it, which resolves to a default with no container
+    /// behind it and may trap or silently discard rather than assert. Moved here,
+    /// a test constructs the two `@Model` objects directly and calls this. The
+    /// view is left doing only the reindex and the save.
+    ///
+    /// Routes through `CustomSegmentRecord.copying(_:orderIndex:name:)` — the one
+    /// place the assembly order (target before goal) lives — so a heart-rate
+    /// segment's band, actuator, bounds and fallback survive the copy along with
+    /// every goal kind.
+    @discardableResult
+    func duplicate(_ segment: CustomSegmentRecord) -> CustomSegmentRecord {
+        let copy = CustomSegmentRecord.copying(
+            segment.asWorkoutSegment,
+            orderIndex: segment.orderIndex,
+            name: segment.name + String(localized: " (copy)"))
+        copy.program = self
+        segments.append(copy)
+        return copy
     }
 }
 
@@ -80,13 +97,27 @@ final class CustomSegmentRecord {
     /// For a time goal this *is* the goal; for a distance goal it is the planned
     /// duration, so the existing list labels and ordering keep working.
     var durationSeconds: Int
+    /// The fixed target — and, for a heart-rate target, its start command. One
+    /// pair of columns for both, which is what makes surrendering control (opt-in
+    /// off, unusable payload) a read rather than a migration.
     var targetSpeedKmh: Double
     var targetIncline: Int
-    // The goal axis. New properties with default values are a lightweight
-    // SwiftData migration — no VersionedSchema needed; the precedent is
+    // Both axes. New properties with default values are a lightweight SwiftData
+    // migration — no VersionedSchema needed; the precedent is
     // WorkoutSampleRecord.timestamp.
     var goalKindRaw: String = SegmentGoal.Kind.time.rawValue
     var goalDistanceKm: Double = 0
+    var goalHeartRateBelow: Int = 0
+    var goalMaxSeconds: Int = 0
+    var targetKindRaw: String = SegmentTarget.Kind.fixed.rawValue
+    var hrLowBpm: Int = 0
+    var hrHighBpm: Int = 0
+    var hrActuatorRaw: String = HeartRateActuator.speed.rawValue
+    var hrMinSpeedKmh: Double = 0
+    var hrMaxSpeedKmh: Double = 0
+    var hrMinIncline: Int = 0
+    var hrMaxIncline: Int = 0
+    var hrFallbackSpeedKmh: Double = 0
     var program: CustomProgram?
 
     init(orderIndex: Int, name: String, durationSeconds: Int,
@@ -107,15 +138,20 @@ final class CustomSegmentRecord {
             switch SegmentGoal.Kind(rawValue: goalKindRaw) ?? .time {
             case .distance where goalDistanceKm > 0:
                 return .distance(km: goalDistanceKm)
+            case .untilHeartRateBelow where goalHeartRateBelow > 0 && goalMaxSeconds > 0:
+                // Repaired rather than trusted: an implausible threshold degrades
+                // to the plain time goal of the cap, as a failed sensor does.
+                return WorkoutSegment.repaired(
+                    .untilHeartRateBelow(bpm: goalHeartRateBelow, maxSeconds: goalMaxSeconds))
             case .time, .distance, .untilHeartRateBelow:
                 // A distance goal without a distance would finish the instant it
-                // starts; the heart-rate goal's own columns arrive with
-                // heart-rate control, until then the stored duration is its cap.
+                // starts, and a recovery goal without a threshold or without its
+                // mandatory cap is not one: both read as the stored duration.
                 return .time(seconds: durationSeconds)
             }
         }
         set {
-            switch newValue {
+            switch WorkoutSegment.repaired(newValue) {
             case .time(let seconds):
                 goalKindRaw = SegmentGoal.Kind.time.rawValue
                 durationSeconds = seconds
@@ -124,15 +160,83 @@ final class CustomSegmentRecord {
                 goalKindRaw = SegmentGoal.Kind.distance.rawValue
                 goalDistanceKm = km
                 durationSeconds = plannedDurationSeconds
-            case .untilHeartRateBelow(_, let maxSeconds):
-                // There is no column for the bpm yet, and a stored kind whose
-                // payload is missing would read back as something else anyway:
-                // the honest degradation is the time cap the getter would give.
-                goalKindRaw = SegmentGoal.Kind.time.rawValue
-                durationSeconds = maxSeconds
+            case .untilHeartRateBelow(let bpm, let maxSeconds):
+                goalKindRaw = SegmentGoal.Kind.untilHeartRateBelow.rawValue
+                goalHeartRateBelow = bpm
+                goalMaxSeconds = maxSeconds
                 goalDistanceKm = 0
+                durationSeconds = maxSeconds
+                // The walking-target rule, at the moment of storage: a recovery
+                // segment cannot be stored with a standing belt.
+                target = target.withStartSpeedFloor(WorkoutSegment.recoveryMinSpeedKmh)
             }
         }
+    }
+
+    /// The heart-rate columns as stored, unchecked. `target` and `targetKind`
+    /// apply the two different checks they each need to it.
+    private var storedHeartRateTarget: HeartRateTarget {
+        HeartRateTarget(lowBpm: hrLowBpm, highBpm: hrHighBpm, actuator: hrActuator,
+                        startSpeedKmh: targetSpeedKmh, startIncline: targetIncline,
+                        minSpeedKmh: hrMinSpeedKmh, maxSpeedKmh: hrMaxSpeedKmh,
+                        minIncline: hrMinIncline, maxIncline: hrMaxIncline,
+                        fallbackSpeedKmh: hrFallbackSpeedKmh)
+    }
+
+    /// The segment's target, assembled from the stored discriminator and payload.
+    /// A kind this build does not know, and a heart-rate payload that is missing
+    /// or degenerate, both read as a fixed segment at the start command instead of
+    /// trapping — which is also exactly what the opt-in-off case needs.
+    var target: SegmentTarget {
+        get {
+            let fixed = SegmentTarget.fixed(speedKmh: targetSpeedKmh, incline: targetIncline)
+            switch SegmentTarget.Kind(rawValue: targetKindRaw) ?? .fixed {
+            case .fixed:
+                return fixed
+            case .heartRate:
+                let heartRate = storedHeartRateTarget
+                return heartRate.isUsable ? .heartRate(heartRate) : fixed
+            }
+        }
+        set {
+            targetKindRaw = newValue.kind.rawValue
+            targetSpeedKmh = newValue.startSpeedKmh
+            targetIncline = newValue.startIncline
+            // The heart-rate columns are deliberately not cleared for a fixed
+            // target: the discriminator decides which of them is read, so a band
+            // the user typed survives a trip through the Fixed tab.
+            guard let heartRate = newValue.heartRate else { return }
+            hrLowBpm = heartRate.lowBpm
+            hrHighBpm = heartRate.highBpm
+            hrActuatorRaw = heartRate.actuator.rawValue
+            hrMinSpeedKmh = heartRate.minSpeedKmh
+            hrMaxSpeedKmh = heartRate.maxSpeedKmh
+            hrMinIncline = heartRate.minIncline
+            hrMaxIncline = heartRate.maxIncline
+            hrFallbackSpeedKmh = heartRate.fallbackSpeedKmh
+        }
+    }
+
+    /// The target's kind, as the editor's segmented picker binds it — the mirror
+    /// of `goalKind`, for the same reason: switching to Heart rate must seed a
+    /// payload the editor can represent, not land on all-zero columns.
+    var targetKind: SegmentTarget.Kind {
+        get { target.kind }
+        set {
+            switch newValue {
+            case .fixed:
+                target = .fixed(speedKmh: targetSpeedKmh, incline: targetIncline)
+            case .heartRate:
+                target = .heartRate(storedHeartRateTarget.repairedForEditing)
+            }
+        }
+    }
+
+    /// The actuated axis, typed. The editor binds this rather than the raw
+    /// string; an unknown stored value reads as speed, the safe default.
+    var hrActuator: HeartRateActuator {
+        get { HeartRateActuator(rawValue: hrActuatorRaw) ?? .speed }
+        set { hrActuatorRaw = newValue.rawValue }
     }
 
     /// The goal's kind, as the editor's segmented picker binds it. It exists so
@@ -145,11 +249,22 @@ final class CustomSegmentRecord {
             switch newValue {
             case .distance:
                 goal = .distance(km: goalDistanceKm > 0 ? goalDistanceKm : seededGoalDistanceKm)
-            case .time, .untilHeartRateBelow:
-                // There is no editor for the heart-rate goal yet — see `goal`.
+            case .untilHeartRateBelow:
+                goal = .untilHeartRateBelow(bpm: seededGoalHeartRateBelowBpm,
+                                            maxSeconds: seededGoalDurationSeconds)
+            case .time:
                 goal = .time(seconds: seededGoalDurationSeconds)
             }
         }
+    }
+
+    /// The recovery threshold, kept inside the editor's range. Same rule as the
+    /// two seeds below: a value the editor's own Stepper cannot represent leaves
+    /// the user unable to walk it back.
+    private var seededGoalHeartRateBelowBpm: Int {
+        WorkoutSegment.goalHeartRateBelowRangeBpm.contains(goalHeartRateBelow)
+            ? goalHeartRateBelow
+            : WorkoutSegment.defaultGoalHeartRateBelowBpm
     }
 
     /// The planned distance, snapped to the editor's step and kept inside its
@@ -178,8 +293,7 @@ final class CustomSegmentRecord {
     /// Runnable form. The identifier is the stored uuid so the dashboard
     /// picker's selection stays stable across re-conversion.
     var asWorkoutSegment: WorkoutSegment {
-        WorkoutSegment(id: uuid, name: name, goal: goal,
-                       targetSpeedKmh: targetSpeedKmh, targetIncline: targetIncline)
+        WorkoutSegment(id: uuid, name: name, goal: goal, target: target)
     }
 
     var plannedDurationSeconds: Int {
@@ -188,9 +302,30 @@ final class CustomSegmentRecord {
 
     /// Rewrites the stored planned duration from the goal and the target speed.
     /// The editor has to call this after changing the speed or the distance of a
-    /// distance-goal segment: for those `durationSeconds` is a derived mirror.
+    /// distance-goal segment, and after changing a recovery goal's cap: for both
+    /// `durationSeconds` is a derived mirror.
     func refreshPlannedDuration() {
-        guard case .distance = goal else { return }
-        durationSeconds = plannedDurationSeconds
+        switch goal {
+        case .time:
+            return
+        case .distance, .untilHeartRateBelow:
+            durationSeconds = plannedDurationSeconds
+        }
+    }
+
+    /// A record carrying every axis of `segment`. Both duplication paths forgot
+    /// the goal axis in phase 1 and one of them shipped the bug, so the assembly
+    /// order lives here once: target before goal, because a distance goal derives
+    /// its stored planned duration from the target speed.
+    static func copying(_ segment: WorkoutSegment, orderIndex: Int,
+                        name: String? = nil) -> CustomSegmentRecord {
+        let record = CustomSegmentRecord(orderIndex: orderIndex,
+                                         name: name ?? segment.name,
+                                         durationSeconds: segment.plannedDurationSeconds,
+                                         targetSpeedKmh: segment.nominalSpeedKmh,
+                                         targetIncline: segment.nominalIncline)
+        record.target = segment.target
+        record.goal = segment.goal
+        return record
     }
 }
