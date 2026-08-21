@@ -243,7 +243,7 @@ enum FitShowParser {
                 distanceKm: Double(distanceRaw) / 10,
                 kcal: kcal,
                 steps: steps,
-                heartRate: Int(payload[12]),
+                heartRate: plausibleHeartRate(Int(payload[12])),
                 programSegment: Int(payload[13])
             )
             return .runData(data)
@@ -260,6 +260,18 @@ enum FitShowParser {
         if primary <= cap { return primary }
         if secondary <= cap { return secondary }
         return 0
+    }
+
+    /// The handlebar readings we believe: 30 is below any working heart. The byte
+    /// carries no protection of its own, so a garbled frame can present any of
+    /// 0…255 as a heart rate.
+    static let plausibleHeartRateRange = 30...HeartRateZones.maxRangeBpm.upperBound
+
+    /// Out of band means "no reading" (0) — the value the sensor itself sends
+    /// when the grips are not held, so every reader already handles it, and no
+    /// artefact reaches the calorie estimate, the samples or the Health export.
+    static func plausibleHeartRate(_ raw: Int) -> Int {
+        plausibleHeartRateRange.contains(raw) ? raw : 0
     }
 
     private static func parseInfo(_ payload: [UInt8]) -> FitShowEvent {

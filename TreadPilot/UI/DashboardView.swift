@@ -135,6 +135,9 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var statsGrid: some View {
+        // Bound once so the icon, the chip and the guard below all agree even
+        // if the Watch's freshness window lapses between the two branches.
+        let heartRate = resolvedHeartRate
         if isProgramActive {
             // A compact 3-column grid so everything fits on one screen with a program.
             Grid(horizontalSpacing: 8, verticalSpacing: 8) {
@@ -144,10 +147,10 @@ struct DashboardView: View {
                     compactStat(String(localized: "Calories"), kcalText)
                 }
                 GridRow {
-                    compactStat(watchHeartRate.freshHeartRate() > 0
+                    compactStat(heartRate.fromWatch
                                 ? String(localized: "Heart rate ⌚")
                                 : String(localized: "Heart rate"),
-                                heartRateText)
+                                heartRateText(for: heartRate.bpm))
                     compactStat(String(localized: "Elevation gain"),
                                 String(format: "%.0f m",
                                        recorder.activeSession?.elevationGainM ?? 0))
@@ -164,10 +167,10 @@ struct DashboardView: View {
                     // During an active workout show our own (body-data based)
                     // calculation, otherwise the treadmill's raw value.
                     stat(String(localized: "Calories"), kcalText)
-                    stat(watchHeartRate.freshHeartRate() > 0
+                    stat(heartRate.fromWatch
                          ? String(localized: "Heart rate · Watch")
                          : String(localized: "Heart rate"),
-                         heartRateText)
+                         heartRateText(for: heartRate.bpm))
                 }
                 GridRow {
                     stat(String(localized: "Elevation gain"),
@@ -198,10 +201,25 @@ struct DashboardView: View {
         .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
     }
 
-    private var heartRateText: String {
-        let watchBpm = watchHeartRate.freshHeartRate()
-        if watchBpm > 0 { return "\(watchBpm) bpm" }
-        return client.state.heartRate > 0 ? "\(client.state.heartRate) bpm" : "–"
+    /// `SessionRecorder`'s own precedence, called once per render and passed
+    /// down — see `statsGrid`, which reads `.bpm` and `.fromWatch` from a
+    /// single `let` instead of calling this a second or third time.
+    private var resolvedHeartRate: (bpm: Int, fromWatch: Bool) {
+        SessionRecorder.resolveHeartRate(watchBpm: watchHeartRate.freshHeartRate(),
+                                         handlebarBpm: client.state.heartRate)
+    }
+
+    /// The frozen basis while a workout records, the live one otherwise (spec
+    /// section 4) — never `profile.heartRateZones` directly, or the chip would
+    /// jump zones under a running workout.
+    private func heartRateZoneLabel(for bpm: Int) -> String? {
+        recorder.activeHeartRateZones?.zone(for: bpm)?.shortLabel
+    }
+
+    private func heartRateText(for bpm: Int) -> String {
+        guard bpm > 0 else { return "–" }
+        guard let zoneLabel = heartRateZoneLabel(for: bpm) else { return SessionFormat.bpm(bpm) }
+        return "\(zoneLabel) · " + SessionFormat.bpm(bpm)
     }
 
     private func stat(_ title: String, _ value: String) -> some View {

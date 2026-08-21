@@ -195,11 +195,19 @@ struct SessionStatsGrid: View {
             }
             GridRow {
                 cell(String(localized: "Calories"), "\(session.displayKcal) kcal")
-                cell(String(localized: "Avg heart rate"), session.avgHeartRate > 0 ? "\(session.avgHeartRate) bpm" : "–")
+                cell(String(localized: "Elevation gain"), String(format: "%.0f m", session.elevationGainM))
             }
             GridRow {
-                cell(String(localized: "Elevation gain"), String(format: "%.0f m", session.elevationGainM))
-                cell(String(localized: "Max heart rate"), session.maxHeartRate > 0 ? "\(session.maxHeartRate) bpm" : "–")
+                cell(String(localized: "Avg heart rate"),
+                     session.avgHeartRate > 0 ? SessionFormat.bpm(session.avgHeartRate) : "–")
+                cell(String(localized: "Max heart rate"),
+                     session.maxHeartRate > 0 ? SessionFormat.bpm(session.maxHeartRate) : "–")
+            }
+            GridRow {
+                // Spans both columns so it reads as one line about the heart-rate
+                // cells above it, not a lone half-width cell with dead space beside it.
+                cell(String(localized: "Watch heart rate coverage"), watchHeartRateCoverageText)
+                    .gridCellColumns(2)
             }
             if session.pausedSeconds > 0 {
                 GridRow {
@@ -208,6 +216,11 @@ struct SessionStatsGrid: View {
                 }
             }
         }
+    }
+
+    /// The model already resolved the rounding rules (`watchHeartRateCoverageWholePercent`).
+    private var watchHeartRateCoverageText: String {
+        session.watchHeartRateCoverageWholePercent.map { "\($0)%" } ?? "–"
     }
 
     private func cell(_ title: String, _ value: String) -> some View {
@@ -234,5 +247,11 @@ enum SessionFormat {
             return String(format: "%d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
         }
         return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    /// The one call site for "N bpm", so Dashboard, History and Profile render
+    /// the unit identically and the catalog gains no key beyond `%lld bpm`.
+    static func bpm(_ value: Int) -> String {
+        String(localized: "\(value) bpm")
     }
 }

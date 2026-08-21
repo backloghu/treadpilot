@@ -25,7 +25,7 @@
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Bluetooth access is required to connect to your treadmill, read workout data, and control the belt.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Your body data (weight, height, age, sex) is used to calculate calorie burn accurately.</string>
+	<string>Your body data (weight, height, age, sex) is used to calculate calorie burn accurately, and your heart rate and resting heart rate are used to compute training zones.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Saving workouts to the Health app keeps your runs and lets you share them with other apps such as Strava.</string>
 	<key>UIAppFonts</key>

@@ -29,6 +29,14 @@ struct TreadPilotApp: App {
                 .environmentObject(profileStore)
                 .environmentObject(exporter)
                 .environmentObject(watchHeartRate)
+                .task {
+                    // Wired at the composition root rather than on a screen: the
+                    // basis a workout freezes may not depend on which view has
+                    // appeared. No workout can begin before the recorder is bound.
+                    recorder.heartRateBasisProvider = { [weak profileStore] in
+                        profileStore?.heartRateBasis
+                    }
+                }
         }
         .modelContainer(for: [WorkoutSessionRecord.self, WorkoutSampleRecord.self,
                               CustomProgram.self, CustomSegmentRecord.self])

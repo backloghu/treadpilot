@@ -14,8 +14,17 @@ final class SessionRecorder: ObservableObject {
     /// The workout that just closed — the summary sheet presents this one.
     @Published var finishedSession: WorkoutSessionRecord?
 
+    /// The zone basis this workout runs on, snapshotted at `begin()` and dropped
+    /// when the session closes. nil means no workout is being recorded. Same
+    /// reason as the cumulative-counter baselines below: the inputs move
+    /// underneath us — a Health refresh or an override edit — and the band and
+    /// ceilings a running workout is judged by may not move with them.
+    @Published private(set) var heartRateBasis: HeartRateBasis?
+
     /// The current body-data profile for the calorie calculation (supplied by ProfileStore).
     var profileProvider: (@MainActor () -> BodyProfile)?
+    /// The live zone basis, read once per workout (supplied by ProfileStore).
+    var heartRateBasisProvider: (@MainActor () -> HeartRateBasis?)?
     /// External (Apple Watch) heart-rate source; 0 = none — the treadmill's value applies then.
     var externalHeartRateProvider: (@MainActor () -> Int)?
     /// Runs on every workout close — including short, discarded sessions
@@ -62,6 +71,7 @@ final class SessionRecorder: ObservableObject {
         // the history), it must not be touched — writing an invalid model would crash.
         if let session = activeSession, session.isDeleted {
             activeSession = nil
+            releaseHeartRateBasis()
             onWorkoutEnded?()
         }
 
@@ -97,6 +107,7 @@ final class SessionRecorder: ObservableObject {
         session.isDemo = client.demoMode
         context.insert(session)
         activeSession = session
+        freezeHeartRateBasis()
         speedSum = 0
         heartRateSum = 0
         heartRateCount = 0
@@ -109,12 +120,40 @@ final class SessionRecorder: ObservableObject {
         lastRawPadKcal = client.state.kcal
     }
 
+    /// The zones every reader outside the profile screen shows or steers by: the
+    /// running workout's frozen basis, the live one when nothing is recording.
+    var activeHeartRateZones: HeartRateZones? {
+        if let heartRateBasis { return heartRateBasis.zones }
+        return heartRateBasisProvider?()?.zones
+    }
+
+    /// Freezing and releasing are called from `begin()` / `finish()`; they are
+    /// not private so the freeze can be tested without a Bluetooth session.
+    func freezeHeartRateBasis() { heartRateBasis = heartRateBasisProvider.flatMap { $0() } }
+
+    func releaseHeartRateBasis() { heartRateBasis = nil }
+
+    /// Which reading a recorded second gets, and whether the Watch supplied it.
+    /// The Watch wins; both sources spell "no reading" 0, the handlebar one also
+    /// once its frame goes stale. Pure, so the rule that coverage counts the
+    /// Watch and not the merged value is testable without Bluetooth or a store.
+    nonisolated static func resolveHeartRate(watchBpm: Int,
+                                             handlebarBpm: Int) -> (bpm: Int, fromWatch: Bool) {
+        watchBpm > 0 ? (watchBpm, true) : (handlebarBpm, false)
+    }
+
     private func record(_ state: TreadmillState) {
         guard let session = activeSession, let context, !session.isDeleted else { return }
-        // Heart rate: the Watch's live data takes precedence over the treadmill's handlebar sensor.
-        let externalHeartRate = externalHeartRateProvider?() ?? 0
-        let heartRate = externalHeartRate > 0 ? externalHeartRate : state.heartRate
-        if externalHeartRate > 0 { session.watchProvidedHeartRate = true }
+        let resolved = Self.resolveHeartRate(watchBpm: externalHeartRateProvider?() ?? 0,
+                                             handlebarBpm: state.heartRate)
+        let heartRate = resolved.bpm
+        if resolved.fromWatch {
+            session.watchProvidedHeartRate = true
+            // Counted per source: a handlebar-only workout would otherwise report
+            // the Watch feed as reliable when the governor it will feed would have
+            // had no input at all.
+            session.watchHeartRateSeconds = (session.watchHeartRateSeconds ?? 0) + 1
+        }
 
         // If the treadmill's counter reset (a new console workout), take a new baseline.
         if state.distanceKm < lastRawDistanceKm { distanceBaselineKm = -session.distanceKm }
@@ -170,6 +209,7 @@ final class SessionRecorder: ObservableObject {
     private func finish() {
         guard let session = activeSession, let context else { return }
         activeSession = nil
+        releaseHeartRateBasis()
         defer { onWorkoutEnded?() }
         if session.isDeleted { return }
         if session.movingSeconds < minimumKeptSeconds {

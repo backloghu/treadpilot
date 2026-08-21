@@ -61,6 +61,15 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     /// for, and a bare literal here would let the two drift apart silently.
     nonisolated static let freshnessHorizonSeconds: TimeInterval = 3
 
+    /// The handlebar heart rate a reading this old is still evidence for. The age
+    /// is the *reading's* own, not the last frame's: only a run-data frame
+    /// carries a heart rate, so a stream of command echoes would otherwise keep
+    /// certifying a byte nothing has re-stated. The Watch feed has its own window
+    /// in `WatchHeartRateManager.freshHeartRate`.
+    nonisolated static func freshHeartRate(_ heartRate: Int, readingAge: TimeInterval) -> Int {
+        readingAge <= freshnessHorizonSeconds ? heartRate : 0
+    }
+
     // The services observed in the 2019 Tunturi consoles' advertisements.
     private static let advertisedServices = [CBUUID(string: "E0FF"), CBUUID(string: "1826")]
     private static let preferredService = CBUUID(string: "FFE0")
@@ -79,6 +88,8 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     private var prepTimer: Timer?
     private var pending: [(payload: [UInt8], attempts: Int)] = []
     private var lastFrameAt: Date = .distantPast
+    /// Stamped by the run-data frames alone — the only ones that carry a heart rate.
+    private var lastHeartRateAt: Date = .distantPast
     private var lastTargetCommandAt: Date = .distantPast
     private var targetsDirtyWhileNotRunning = false
     private var userWantsConnection = false
@@ -166,7 +177,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         state.speedKmh = 0
     }
 
-    // MARK: - Kapcsolat
+    // MARK: - Connection
 
     func startScan() {
         lastError = nil
@@ -323,8 +334,14 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
 
         // Guarding data freshness: while running, older data is suspect — the
         // status and the speed in hand are then remembered values, not observations.
+        let now = Date()
         staleData = state.isRunning
-            && Date().timeIntervalSince(lastFrameAt) > Self.freshnessHorizonSeconds
+            && now.timeIntervalSince(lastFrameAt) > Self.freshnessHorizonSeconds
+        // Expired here, at the single place that knows the reading's age, so no
+        // reader of `state.heartRate` has to learn a freshness rule of its own.
+        let fresh = Self.freshHeartRate(state.heartRate,
+                                        readingAge: now.timeIntervalSince(lastHeartRateAt))
+        if fresh != state.heartRate { state.heartRate = fresh }
 
         // An unacknowledged command drops out after 3 sends so it does not starve the poll.
         if let head = pending.first, head.attempts >= 3 {
@@ -388,6 +405,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             state.kcal = data.kcal
             state.steps = data.steps
             state.heartRate = data.heartRate
+            lastHeartRateAt = Date()
             if data.status == .running {
                 reconcileTargets(with: data, justStarted: !wasRunning)
             }
@@ -460,7 +478,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         enqueue(FitShowCommands.infoExtended)
     }
 
-    // MARK: - Hibautak
+    // MARK: - Failure paths
 
     private func startPrepTimeout() {
         prepTimer?.invalidate()

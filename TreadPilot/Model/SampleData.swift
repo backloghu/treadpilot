@@ -31,6 +31,33 @@ enum SampleData {
         let restingHR: Int
         let peakHR: Int
         let synced: Bool
+        let watchFeed: WatchFeed
+    }
+
+    /// What the Watch feed did during a demo workout. Coverage is counted from
+    /// it second by second and never asserted, so a screenshot cannot advertise
+    /// a reliability the samples themselves do not show.
+    private enum WatchFeed {
+        /// No Watch: the handlebar sensor recorded the heart rate, and the feed
+        /// a governor would consume delivered nothing.
+        case none
+        case full
+        case dropout(fromSecond: Int, seconds: Int)
+
+        func delivered(at second: Int) -> Bool {
+            switch self {
+            case .none: return false
+            case .full: return true
+            case .dropout(let from, let seconds): return second < from || second >= from + seconds
+            }
+        }
+
+        /// Whether anything recorded a heart rate this second: with no Watch the
+        /// handlebar sensor stands in, but during a Watch dropout nothing does.
+        func recorded(at second: Int) -> Bool {
+            if case .none = self { return true }
+            return delivered(at: second)
+        }
     }
 
     private static let plans: [Plan] = [
@@ -38,23 +65,27 @@ enum SampleData {
         // retroactive Health save).
         Plan(daysAgo: 0, hour: 7, minute: 12, program: "Tuesday intervals",
              segments: intervalSegments(rounds: 5, fast: 11.0, easy: 6.0),
-             restingHR: 104, peakHR: 168, synced: false),
+             restingHR: 104, peakHR: 168, synced: false,
+             watchFeed: .dropout(fromSecond: 420, seconds: 95)),
         Plan(daysAgo: 2, hour: 18, minute: 40, program: "Hill steady",
              segments: [(300, 5.5, 0), (600, 8.0, 4), (600, 8.5, 6),
                         (420, 8.0, 3), (300, 4.5, 0)],
-             restingHR: 98, peakHR: 158, synced: true),
+             restingHR: 98, peakHR: 158, synced: true, watchFeed: .full),
         Plan(daysAgo: 5, hour: 6, minute: 55, program: nil,
              segments: [(180, 5.0, 0), (900, 9.2, 1), (240, 4.5, 0)],
-             restingHR: 96, peakHR: 154, synced: true),
+             restingHR: 96, peakHR: 154, synced: true,
+             watchFeed: .dropout(fromSecond: 600, seconds: 210)),
         Plan(daysAgo: 7, hour: 19, minute: 20, program: "Tuesday intervals",
              segments: intervalSegments(rounds: 4, fast: 10.5, easy: 6.0),
-             restingHR: 100, peakHR: 163, synced: true),
+             restingHR: 100, peakHR: 163, synced: true, watchFeed: .full),
+        // Recorded without a Watch: the handlebar sensor gave a heart rate all
+        // through, and the feed phase 3 would steer by gave nothing.
         Plan(daysAgo: 10, hour: 7, minute: 5, program: "Gentle test (6 min)",
              segments: [(120, 3.0, 0), (120, 5.0, 1), (120, 3.0, 0)],
-             restingHR: 88, peakHR: 118, synced: true),
+             restingHR: 88, peakHR: 118, synced: true, watchFeed: .none),
         Plan(daysAgo: 13, hour: 17, minute: 48, program: nil,
              segments: [(240, 5.5, 0), (1500, 9.8, 2), (300, 4.5, 0)],
-             restingHR: 102, peakHR: 171, synced: true),
+             restingHR: 102, peakHR: 171, synced: true, watchFeed: .full),
     ]
 
     private static func intervalSegments(rounds: Int, fast: Double,
@@ -118,6 +149,7 @@ enum SampleData {
         var maxSpeed = 0.0
         var kcal = 0.0
         var hrSum = 0, hrCount = 0, hrMax = 0
+        var watchSeconds = 0
         // Heart rate follows the load with a lag — without that the chart would
         // be angular and would not look like a real workout.
         var heartRate = Double(plan.restingHR)
@@ -134,8 +166,11 @@ enum SampleData {
                 let target = Double(plan.restingHR)
                     + effort * Double(plan.peakHR - plan.restingHR)
                 heartRate += (target - heartRate) * 0.045
-                let bpm = Int(heartRate.rounded())
-                hrSum += bpm; hrCount += 1; hrMax = max(hrMax, bpm)
+                // The body's rate keeps running through a feed dropout; what
+                // stops is the recording of it, so the two are separate values.
+                let bpm = plan.watchFeed.recorded(at: second) ? Int(heartRate.rounded()) : 0
+                if plan.watchFeed.delivered(at: second) { watchSeconds += 1 }
+                if bpm > 0 { hrSum += bpm; hrCount += 1; hrMax = max(hrMax, bpm) }
                 // Integrated the same way the real recorder does it.
                 kcal += CalorieEngine.kcalForSecond(speedKmh: speed,
                                                     inclinePercent: segment.incline,
@@ -168,7 +203,8 @@ enum SampleData {
             ? distanceKm / (Double(movingSeconds) / 3600) : 0
         session.avgHeartRate = hrCount > 0 ? hrSum / hrCount : 0
         session.maxHeartRate = hrMax
-        session.watchProvidedHeartRate = true
+        session.watchProvidedHeartRate = watchSeconds > 0
+        session.watchHeartRateSeconds = watchSeconds
         session.healthKitSynced = plan.synced
 
         session.computedKcal = kcal

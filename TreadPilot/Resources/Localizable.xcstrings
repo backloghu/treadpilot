@@ -57,6 +57,17 @@
         }
       }
     },
+    "%lld bpm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bpm"
+          }
+        }
+      }
+    },
     "%lld dBm": {
       "extractionState": "manual",
       "localizations": {
@@ -114,6 +125,17 @@
         }
       }
     },
+    "%lld+ bpm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld+ bpm"
+          }
+        }
+      }
+    },
     "%lld/%lld · %@": {
       "extractionState": "manual",
       "localizations": {
@@ -121,6 +143,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld/%lld · %@"
+          }
+        }
+      }
+    },
+    "%lld–%lld bpm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld–%lld bpm"
           }
         }
       }
@@ -901,6 +934,23 @@
         }
       }
     },
+    "Health: %@ — not used": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health: %@ — not used"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health: %@ — nem használt"
+          }
+        }
+      }
+    },
     "Heart rate": {
       "extractionState": "manual",
       "localizations": {
@@ -965,6 +1015,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pulzus ⌚"
+          }
+        }
+      }
+    },
+    "Heart-rate zones": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heart-rate zones"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulzuszónák"
           }
         }
       }
@@ -1186,6 +1253,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Max sebesség"
+          }
+        }
+      }
+    },
+    "Maximum heart rate": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maximum heart rate"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Becsült maximális pulzus"
           }
         }
       }
@@ -1632,6 +1716,23 @@
         }
       }
     },
+    "Raise the maximum heart rate or lower the resting heart rate to see zone ranges — the two are currently too close together.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raise the maximum heart rate or lower the resting heart rate to see zone ranges — the two are currently too close together."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emeld meg a max pulzust, vagy csökkentsd a nyugalmi pulzust a zónatartományok megjelenítéséhez — a kettő jelenleg túl közel van egymáshoz."
+          }
+        }
+      }
+    },
     "Recovery %lld": {
       "extractionState": "manual",
       "localizations": {
@@ -1645,6 +1746,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pihenő %lld"
+          }
+        }
+      }
+    },
+    "Resting heart rate": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resting heart rate"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nyugalmi pulzus"
           }
         }
       }
@@ -2493,6 +2611,23 @@
         }
       }
     },
+    "Watch heart rate coverage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch heart rate coverage"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch pulzuslefedettség"
+          }
+        }
+      }
+    },
     "Weight": {
       "extractionState": "manual",
       "localizations": {
@@ -2557,6 +2692,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Az alkalmazást saját felelősségedre használod. Egészségügyi panasz esetén edzés előtt konzultálj orvossal."
+          }
+        }
+      }
+    },
+    "Zones are computed from your heart-rate reserve — the span between resting and maximum heart rate.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zones are computed from your heart-rate reserve — the span between resting and maximum heart rate."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A zónák a pulzustartalékból számolódnak — ez a nyugalmi és a max pulzus közötti tartomány."
           }
         }
       }
@@ -2692,6 +2844,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "🏁 Ez az utolsó szakasz"
+          }
+        }
+      }
+    },
+    "Health: %@ — lower than the estimate; consider an override": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health: %@ — lower than the estimate; consider an override"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health: %@ — alacsonyabb a becsültnél; érdemes felülbírálni"
           }
         }
       }

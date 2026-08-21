@@ -36,7 +36,8 @@ targets:
           workout data, and control the belt.
         NSHealthShareUsageDescription: >-
           Your body data (weight, height, age, sex) is used to calculate
-          calorie burn accurately.
+          calorie burn accurately, and your heart rate and resting heart rate
+          are used to compute training zones.
         NSHealthUpdateUsageDescription: >-
           Saving workouts to the Health app keeps your runs and lets you share
           them with other apps such as Strava.

@@ -128,6 +128,63 @@ final class FitShowProtocolTests: XCTestCase {
         XCTAssertEqual(data.steps, 54)
     }
 
+    // MARK: - Handlebar heart-rate plausibility
+
+    func testAGarbledHeartRateByteArrivesAsNoReading() throws {
+        // The run-data frame of testParseRunDataFrame with 250 bpm in the
+        // heart-rate byte: nobody's heart did that, so it must reach the app as
+        // 0 ("no reading"), never as a heart rate the calorie estimate, the
+        // samples, the Health export or the zone chip can believe.
+        let payload = try XCTUnwrap(FitShowFrame.decode(
+            FitShowFrame.encode([0x51, 0x03, 0x50, 0x02, 0x3C, 0x00, 0x14, 0x00,
+                                 0x32, 0x00, 0x96, 0x00, 250, 0x00])))
+        guard case .runData(let data) = FitShowParser.parse(payload) else {
+            return XCTFail("expected a runData event")
+        }
+        XCTAssertEqual(data.heartRate, 0)
+        // The rest of the frame is untouched: one bad byte is not a bad frame.
+        XCTAssertEqual(data.speedKmh, 8.0, accuracy: 0.001)
+        XCTAssertEqual(data.steps, 150)
+    }
+
+    func testHandlebarHeartRateBandEdges() {
+        // 0 is the sensor's own value for "grips not held" and stays 0.
+        XCTAssertEqual(FitShowParser.plausibleHeartRate(0), 0)
+        XCTAssertEqual(FitShowParser.plausibleHeartRate(29), 0)
+        XCTAssertEqual(FitShowParser.plausibleHeartRate(30), 30)
+        XCTAssertEqual(FitShowParser.plausibleHeartRate(148), 148)
+        XCTAssertEqual(FitShowParser.plausibleHeartRate(230), 230)
+        XCTAssertEqual(FitShowParser.plausibleHeartRate(231), 0)
+        // The byte's own ceiling — the value a stuck line produces.
+        XCTAssertEqual(FitShowParser.plausibleHeartRate(255), 0)
+    }
+
+    // MARK: - Handlebar reading freshness
+
+    func testAFreshReadingKeepsItsHeartRate() {
+        XCTAssertEqual(FitShowTreadmillClient.freshHeartRate(148, readingAge: 0), 148)
+        XCTAssertEqual(FitShowTreadmillClient.freshHeartRate(
+            148, readingAge: FitShowTreadmillClient.freshnessHorizonSeconds), 148)
+    }
+
+    func testAStaleReadingExpiresToNoReading() {
+        // The reproduction: the belt keeps running and the link goes quiet for a
+        // minute. The dashboard said "Z3 · 148 bpm" off a minute-old byte and
+        // the recorder booked those seconds as covered.
+        XCTAssertEqual(FitShowTreadmillClient.freshHeartRate(148, readingAge: 60), 0)
+        // One poll interval past the horizon is already too old.
+        XCTAssertEqual(FitShowTreadmillClient.freshHeartRate(
+            148, readingAge: FitShowTreadmillClient.freshnessHorizonSeconds + 0.2), 0)
+    }
+
+    func testFramesThatCarryNoHeartRateCannotKeepTheReadingAlive() {
+        // Holding the speed "+" button makes every 0.2 s tick write a command, so
+        // the console answers with bare echoes that parse as .statusOnly. Those
+        // frames are fresh and carry no heart rate: the reading ages off its own
+        // arrival, which is 12 s ago here, so it must expire anyway.
+        XCTAssertEqual(FitShowTreadmillClient.freshHeartRate(148, readingAge: 12), 0)
+    }
+
     func testParseCountdown() throws {
         // Countdown: status 0x02, the next byte is the remaining seconds.
         let payload = try XCTUnwrap(FitShowFrame.decode(hex("02 51 02 05 56 03")))
