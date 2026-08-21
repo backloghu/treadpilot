@@ -2,6 +2,186 @@
 
 All notable changes to TreadPilot are documented in this file.
 
+## 1.1.0 — 2026-08-21
+
+Two things a runner asks for that 1.0 could not answer. A program segment can now be given a
+distance instead of a duration — "5 km at 8 km/h" is finally something the app can be told — and,
+switched on deliberately, the app can hold a heart-rate zone by adjusting the belt itself.
+
+The distance half is straightforward and changes one assumption: for a distance segment the
+distance is exact and the time is a projection, where every segment in 1.0 was the other way
+round. Estimated times are marked as estimates everywhere they appear.
+
+The heart-rate half is the reason this release took the work it did. Telling a treadmill to hold
+a zone means the app writes speed to a machine moving under someone's feet, on its own, and the
+belt has to do the right thing when the heart-rate feed drops out, when the Bluetooth link goes
+quiet, when the user reaches for the console, and when the number the whole thing is computed
+from is simply wrong. Most of this release is those cases. The feature is off by default, asks
+once before its first run, needs an Apple Watch, and will not steer anyone into their top zone.
+
+Between them sits a smaller piece that exists to make the third one honest: heart-rate zones
+computed from your own body data, and a measurement of how reliable your Watch's heart rate
+actually is, recorded per workout. The zones shipped before the control did, deliberately, so
+the feed's reliability could be judged before it was allowed to steer.
+
+The test suite grew from 46 tests to 464.
+
+### Features
+
+#### Distance goals for program segments
+
+**Need:** The editor could only say "run for five minutes". Every runner thinks in kilometres.
+
+**Solution:** A segment now carries a goal — a duration or a distance — chosen with a picker in
+the segment editor. A distance segment ends when the distance is covered, however long that
+takes, so slowing down lengthens the segment instead of shortening it.
+
+_Verified:_
+
+- A segment can be given a distance from 0.1 to 42.2 km, and it survives an app restart
+- The workout screen shows progress against the goal (3.2 / 5.0 km) with the remaining time as an estimate below it
+- Pace in min/km is shown alongside km/h wherever a distance segment is edited or run
+- Program totals: the distance is exact, the time carries a "~" in the editor, the program list, the home screen and the workout screen
+- Distance does not accumulate while the program is suspended, while the belt is standing, or while the Bluetooth data has gone stale
+- Distance is measured by the app rather than read from the console, whose own counter is quantised to 100 m and resets when a console workout restarts
+- A distance segment cannot run unbounded if the console under-reports its speed
+- Existing duration-based programs behave as before
+
+#### Heart-rate zones from your own body data
+
+**Need:** "Zone 3" means nothing without knowing the person. A percentage of an age-based maximum
+puts a trained runner in the wrong zone all season.
+
+**Solution:** Five zones computed on heart-rate reserve (Karvonen), from a maximum and a resting
+heart rate that resolve from your own override, then Apple Health, then an age formula. The
+profile screen shows the resulting boundaries in bpm, and the workout screen shows which zone
+you are in.
+
+_Verified:_
+
+- Maximum and resting heart rate are editable in the profile, with the Health value shown when there is no override
+- Resting heart rate is read from Health; the maximum may be raised by what Health has observed, but never lowered by it
+- A single Health sample cannot move a zone boundary, and the app's own exported samples are excluded from the evidence
+- When Health holds a maximum lower than the age formula, the profile says so, so the estimate can be corrected
+- A profile with no usable reserve produces no zones rather than nonsense
+- The zone appears only while a live heart rate is available, and disappears when the reading goes stale
+- The last known Health values are kept, so a cold launch does not zone against a fallback
+- The basis is frozen when a workout starts and cannot move mid-workout
+
+#### Watch heart-rate coverage per workout
+
+**Need:** Before a heart rate is allowed to steer a belt, it is worth knowing how often the feed
+actually delivers — and after the fact, nobody can remember.
+
+**Solution:** Every workout records what share of its moving time had a live heart rate from the
+Watch, and the summary and history show it.
+
+_Verified:_
+
+- The number measures the Watch feed specifically, because that is the feed heart-rate control uses
+- 100% means the feed never dropped; a workout with no Watch reads 0%, not "no data"
+- Workouts recorded before this version report the figure as unmeasured rather than inventing one
+- The handlebar sensor is not counted as coverage
+
+#### Heart-rate driven segments
+
+**Need:** Holding a zone by hand means reaching for the console every couple of minutes, which is
+the opposite of a steady effort.
+
+**Solution:** A segment can be given a heart-rate band instead of a fixed speed. The app adjusts
+the belt — speed or incline, your choice per segment — to hold you in that band, inside speed and
+incline limits you set. It is off by default and asks once before its first run.
+
+_Verified:_
+
+- The loop evaluates every 10 s and moves at most 0.2 km/h or one incline level at a time, because heart rate lags load by 20 to 40 seconds
+- The band-following loop never commands outside the segment's own limits intersected with the treadmill's; the two ceilings and the feed-loss fallback are bounded by the treadmill's limits alone, so a segment's floor cannot hold a brake up
+- It never adds load while the heart rate is above the band, or while there is no fresh reading
+- Only the Apple Watch feed may steer; the handlebar sensor remains display and recording only
+- With the setting off, a heart-rate segment runs at its start speed as an ordinary fixed segment, and nothing about heart rate touches the belt
+- A missing reading freezes the belt, then falls back to the segment's declared fallback speed after 30 s
+- Above 92% of the frozen maximum the app reduces the load regardless of the band; above 97% it stops the belt
+- A stop the app asked for is re-issued until the belt is observed stopped, and if it is not, the user is told to stop it at the console
+- A band above the force-down ceiling is refused rather than chased, so the app will not hold anyone in their top zone
+- If the band cannot be reached at the segment's upper limit, the app stops pushing and says so
+- Every command is one step from where the belt actually is, so a speed you set by hand persists; a decisive change hands control back for the rest of the segment
+- Nothing is written while the Bluetooth link is stale, because every number describing the belt is then a memory
+- The band, the limits and the ceilings are those of the workout in progress and cannot be changed underneath it
+- The workout screen shows what the loop is doing: holding, adjusting, frozen, on fallback, at the ceiling, target not reached, or handed back
+- The history detail draws the target band behind the heart-rate curve, so a workout shows whether the app held what it promised
+- A workout the app stopped on heart rate says so in its summary and in its history, not only while it is running
+
+#### Active recovery segments
+
+**Need:** An interval program wants "jog easy until the pulse comes down", not a fixed guess.
+
+**Solution:** A segment can end when the heart rate drops below a value you choose. It always
+carries a walking speed rather than a stop, and a mandatory time cap so a failing sensor cannot
+stall the program.
+
+_Verified:_
+
+- The segment holds its walking speed until the heart rate falls below the threshold or the cap elapses, whichever comes first
+- The walking speed cannot be zero
+- With no heart-rate reading at all, the segment behaves as an ordinary timed segment of its cap
+
+#### Demo mode drives the heart-rate loop
+
+**Need:** A feature that moves a belt by itself cannot be developed, screenshotted or reviewed
+only on a real treadmill.
+
+**Solution:** The simulated treadmill now produces a heart rate that lags load the way a real one
+does, and a seeded demo program exercises a governed segment and a recovery segment.
+
+_Verified:_
+
+- In demo mode the loop receives the synthetic heart rate and visibly steers
+- The trace is deterministic, and nothing outside demo mode is affected
+
+### Bug fixes
+
+#### The handlebar heart rate was an unfiltered byte
+
+**Need:** The heart rate from the console's handlebar sensor was passed through exactly as
+received — a single byte, anything from 0 to 255 — and believed by the calorie estimate, the
+saved samples and the Apple Health export.
+
+**Solution:** The value is now checked for plausibility where the frame is parsed, so one garbled
+frame cannot become a 250 bpm reading.
+
+_Verified:_
+
+- An implausible value is discarded rather than recorded
+- The app's own exported samples are no longer treated as evidence about the user's maximum heart rate
+
+#### The handlebar heart rate never went stale
+
+**Need:** The Watch's reading expires after 10 seconds, but the console's held its last value
+indefinitely. A minute of Bluetooth silence left a minute-old heart rate on screen under the
+"not updating" warning, and counted it as recorded.
+
+**Solution:** The reading now expires from its own arrival, not from the arrival of any frame —
+because a frame that carries no heart rate cannot vouch for one.
+
+_Verified:_
+
+- After the freshness horizon the heart rate reads as absent everywhere, including the calorie calculation and the recording
+
+### Project and release
+
+#### Version 1.1.0
+
+**Need:** The version lives in the generated Info.plist files, which are written from project.yml.
+
+**Solution:** Both the iOS and the watchOS target declare 1.1.0 (build 2) in project.yml, and the
+plists are regenerated from it.
+
+_Verified:_
+
+- Both targets report 1.1.0 (2)
+- The Health permission text covers heart rate, which the app now reads for training zones
+- The safety disclaimer states that heart-rate control is a fitness feature and not a medical device, and is shown once to users upgrading from 1.0
+
 ## 1.0.0 — 2026-08-20
 
 The first release of TreadPilot. The app controls FitShow-based treadmills (for example

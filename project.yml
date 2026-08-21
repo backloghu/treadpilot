@@ -28,6 +28,8 @@ targets:
       properties:
         CFBundleDisplayName: TreadPilot
         CFBundleName: TreadPilot
+        CFBundleShortVersionString: "1.1.0"
+        CFBundleVersion: "2"
         UILaunchScreen: {}
         # English is the source text; the Hungarian translation lives in
         # TreadPilot/Resources/InfoPlist.xcstrings
@@ -75,6 +77,8 @@ targets:
       properties:
         CFBundleDisplayName: TreadPilot
         CFBundleName: TreadPilot
+        CFBundleShortVersionString: "1.1.0"
+        CFBundleVersion: "2"
         WKApplication: true
         WKCompanionAppBundleIdentifier: hu.backlog.treadpilot
         # Without this an HKWorkoutSession cannot run on watchOS (and
