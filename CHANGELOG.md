@@ -110,6 +110,7 @@ _Verified:_
 - The workout screen shows what the loop is doing: holding, adjusting, frozen, on fallback, at the ceiling, target not reached, or handed back
 - The history detail draws the target band behind the heart-rate curve, so a workout shows whether the app held what it promised
 - A workout the app stopped on heart rate says so in its summary and in its history, not only while it is running
+- A saved band the profile's basis can no longer hold is not rewritten when the editor opens: the editor says so, says the segment would run fixed, and offers the holdable band as a single tap that names both values
 
 #### Active recovery segments
 

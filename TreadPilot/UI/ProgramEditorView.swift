@@ -348,6 +348,13 @@ struct SegmentEditorView: View {
             }
             .listRowBackground(Brand.bgElev1)
 
+            // Directly under the two steppers whose values it is about, and only
+            // when there is something to say. See `SegmentBandFit`.
+            if let adjustment = unholdableBandAdjustment {
+                unholdableBandNotice(adjustment)
+                    .listRowBackground(Brand.bgElev1)
+            }
+
             if segment.hrActuator == .speed {
                 Stepper(value: minSpeedCorridorBinding,
                         in: HeartRateTarget.minSpeedEditingRange(maxSpeedKmh: segment.hrMaxSpeedKmh,
@@ -395,22 +402,77 @@ struct SegmentEditorView: View {
         // outlive the profile it was seeded against — a lower maximum-heart-rate
         // override typed in afterwards shrinks `holdableBandRangeBpm` under a
         // band that was fine when it was saved. The steppers above can no longer
-        // trap on this (their ranges are inversion-proof either way), but the
-        // stored value itself should still track the profile it is being edited
-        // against, so pulling it back in here — once, on appearing — is repair
-        // rather than merely damage control.
-        .onAppear { repairBandForLiveBasis() }
+        // trap on this (their ranges are inversion-proof either way).
+        //
+        // There is deliberately **no** `.onAppear` repair here any more. That is
+        // finding 118's second round: pulling the stored band inside
+        // `holdableBandRangeBpm` on appearing wrote the new pair straight onto the
+        // `@Model` record and `.onDisappear`'s save made it permanent, with
+        // nothing on screen saying so — merely opening a 150–165 segment after a
+        // 130 bpm maximum override turned it into 114–119 and backing out kept it.
+        // The band is now left exactly as the user saved it and the notice above
+        // states the mismatch; the only thing that rewrites it is the user tapping
+        // the adjustment. See `SegmentBandFit`.
     }
 
-    /// The stored band, pulled inside `holdableBandRangeBpm` for the live
-    /// profile if it is not already — see the `.onAppear` above. A no-op for a
-    /// band that already fits, which is every ordinary case.
-    private func repairBandForLiveBasis() {
-        let stored = min(segment.hrLowBpm, segment.hrHighBpm)...max(segment.hrLowBpm, segment.hrHighBpm)
-        let repaired = HeartRateTarget.repairedBand(stored, within: holdableBandRangeBpm)
-        guard repaired.lowerBound != segment.hrLowBpm || repaired.upperBound != segment.hrHighBpm else { return }
-        segment.hrLowBpm = repaired.lowerBound
-        segment.hrHighBpm = repaired.upperBound
+    /// The band this profile could actually hold, when the stored one no longer
+    /// fits — nil in every ordinary case, which is also the notice's own
+    /// visibility condition. The decision itself is pure and lives in
+    /// `SegmentBandFit`; this only feeds it the two stored columns and the live
+    /// holdable range.
+    private var unholdableBandAdjustment: ClosedRange<Int>? {
+        SegmentBandFit.adjustment(forStoredLowBpm: segment.hrLowBpm,
+                                  highBpm: segment.hrHighBpm,
+                                  holdable: holdableBandRangeBpm)
+    }
+
+    /// The visible statement the hard rule asks for: the stored band is above
+    /// what this profile's own force-down ceiling allows the loop to chase, said
+    /// where the band is edited, plus the adjustment as a one-tap action rather
+    /// than a thing that already happened.
+    ///
+    /// "Above" rather than "outside" is exact: a heart-rate section is only ever
+    /// shown for a target `CustomSegmentRecord.target` found usable, so the
+    /// stored band is inside `HeartRateTarget.bandRangeBpm` (low >= 60), while
+    /// `holdableBandRangeBpm`'s own lower bound is never above 60. Every possible
+    /// mismatch is therefore an upward one.
+    ///
+    /// The wording mirrors the dashboard's own vocabulary for the same rule
+    /// ("Band not reachable — running fixed", the "(reduced)" chip), because it
+    /// is the same rule seen from the plan side.
+    private func unholdableBandNotice(_ adjustment: ClosedRange<Int>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                Text("This band is above what your current heart-rate basis can hold, so the app will not steer it — the segment would run fixed at its start command. Nothing has been changed.")
+            }
+            .font(.footnote)
+            .foregroundStyle(Brand.danger)
+            Button {
+                applyBandAdjustment(adjustment)
+            } label: {
+                Text(String(localized: "Adjust the band to \(adjustment.lowerBound)–\(adjustment.upperBound) bpm"))
+                    .font(Brand.display(12, .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(Brand.accent)
+            }
+            // The hit area is the label, not the row. A List row that also holds
+            // explanatory text must not turn a tap on that text into an edit of
+            // the plan — the whole point of this notice is that the change happens
+            // only when the user aims at the sentence that names both values.
+            .buttonStyle(.borderless)
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// The adjustment, applied because the user asked for it. Saved at once
+    /// rather than left to `.onDisappear`: this is the one write on this screen
+    /// the user made by tapping a label that named both new values, so it is the
+    /// one write that has earned being durable immediately.
+    private func applyBandAdjustment(_ adjustment: ClosedRange<Int>) {
+        segment.hrLowBpm = adjustment.lowerBound
+        segment.hrHighBpm = adjustment.upperBound
+        try? context.save()
     }
 
     /// The bpm a band may be asked for on the live profile basis — the
@@ -566,5 +628,42 @@ struct SegmentEditorView: View {
                 .font(Brand.display(15, .semibold))
                 .foregroundStyle(.white)
         }
+    }
+}
+
+/// Does a stored heart-rate band still fit the profile it is being edited
+/// against, and what would fit instead? Pure, SwiftUI-free and free of any
+/// `@Model`, so the ruling can be tested without a `View`, a `ModelContext` or a
+/// `ProfileStore` — the same shape, and for the same reason, as
+/// `TargetBandChart.runs(in:)`.
+///
+/// **The editor states the reduction; it does not perform it** (spec section 4,
+/// "A band above the force-down ceiling is not a band the governor may chase").
+/// The earlier version of this rule ran the adjustment itself in `.onAppear` and
+/// let `.onDisappear`'s save make it permanent: a 150–165 band built while the
+/// maximum resolved to 200 became 114–119 the moment a 130 bpm override was
+/// typed into the profile and the segment was merely opened, with no notice, no
+/// undo, and the number on screen no longer the number the user set. Everywhere
+/// else this feature surfaces the same reduction rather than acting on it — the
+/// dashboard's "(reduced)" chip, the `bandNotSteerable` status line, the
+/// profile's own "lower than the estimate; consider an override" — and nothing is
+/// lost by asking instead of acting: the runner arbitrates the *stored* band
+/// against the frozen basis at run time (`HeartRateGovernor.arbitration(for:
+/// basis:)`), so an unholdable band is refused, the segment runs fixed and says
+/// so. Persisting the repair was never a safety requirement; it was only a
+/// silent edit of somebody's plan.
+enum SegmentBandFit {
+    /// The band this profile's holdable range would accept instead, or nil when
+    /// the stored band already fits and there is nothing to say.
+    ///
+    /// The comparison is against the *normalised* stored pair, because the
+    /// governor normalises too (`HeartRateGovernor.band(for:)`): a pair stored in
+    /// the wrong order is not by itself unholdable, and reporting it here would
+    /// be a notice about a problem the loop does not have.
+    static func adjustment(forStoredLowBpm low: Int, highBpm high: Int,
+                           holdable: ClosedRange<Int>) -> ClosedRange<Int>? {
+        let stored = min(low, high)...max(low, high)
+        let adjusted = HeartRateTarget.repairedBand(stored, within: holdable)
+        return adjusted == stored ? nil : adjusted
     }
 }

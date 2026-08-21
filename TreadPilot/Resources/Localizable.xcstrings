@@ -3595,6 +3595,40 @@
           }
         }
       }
+    },
+    "This band is above what your current heart-rate basis can hold, so the app will not steer it — the segment would run fixed at its start command. Nothing has been changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This band is above what your current heart-rate basis can hold, so the app will not steer it — the segment would run fixed at its start command. Nothing has been changed."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ez a sáv magasabb annál, amit a jelenlegi pulzusalap tartani tud, ezért az app nem vezérel rá — a szegmens rögzített módban, a kezdő értékein futna. Semmi nem változott."
+          }
+        }
+      }
+    },
+    "Adjust the band to %lld–%lld bpm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjust the band to %lld–%lld bpm"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sáv igazítása %lld–%lld bpm-re"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -90,4 +90,103 @@ final class ProgramEditorViewTests: XCTestCase {
         XCTAssertEqual(copy.orderIndex, first.orderIndex, "copying carries the source's own index — the caller reindexes")
         XCTAssertEqual(copy.name, "First" + String(localized: " (copy)"))
     }
+
+    // MARK: - SegmentBandFit (finding 118, second round)
+
+    /// The live holdable range for a profile, the way `SegmentEditorView` derives
+    /// it — through the governor, so these tests move whenever the force-down
+    /// ceiling does.
+    private func holdable(maxBpm: Int, restingBpm: Int = 60) -> ClosedRange<Int> {
+        HeartRateGovernor.holdableBandRangeBpm(
+            for: HeartRateBasis(restingBpm: restingBpm, maxBpm: maxBpm))
+    }
+
+    private func heartRateSegment(lowBpm: Int, highBpm: Int) -> CustomSegmentRecord {
+        let segment = CustomSegmentRecord(orderIndex: 0, name: "Zone 3",
+                                          durationSeconds: 600,
+                                          targetSpeedKmh: 6.0, targetIncline: 1)
+        var target = heartRateTarget()
+        target.lowBpm = lowBpm
+        target.highBpm = highBpm
+        segment.target = .heartRate(target)
+        return segment
+    }
+
+    func testABandThatStillFitsTheBasisAsksForNothingAndSaysNothing() {
+        // 144–155 against a maximum of 200: the force-down ceiling is 184, so the
+        // band is holdable and the notice must not appear at all. nil is both the
+        // "no adjustment" answer and the notice's own visibility condition.
+        XCTAssertNil(SegmentBandFit.adjustment(forStoredLowBpm: 144, highBpm: 155,
+                                               holdable: holdable(maxBpm: 200)))
+    }
+
+    func testTheBetaBlockerCaseOffersAnAdjustmentInsteadOfPerformingOne() {
+        // The failure this replaces: a 150–165 segment built while the maximum
+        // resolved to 200, then a 130 bpm override typed into the profile (the
+        // beta-blocker correction spec section 4 asks the profile to prompt for).
+        // Force-down is 120, so the holdable band tops out at 119 and the stored
+        // band no longer fits.
+        let holdable = holdable(maxBpm: 130)
+        XCTAssertEqual(holdable, 60...119)
+
+        let segment = heartRateSegment(lowBpm: 150, highBpm: 165)
+        let adjustment = SegmentBandFit.adjustment(forStoredLowBpm: segment.hrLowBpm,
+                                                   highBpm: segment.hrHighBpm,
+                                                   holdable: holdable)
+        XCTAssertEqual(adjustment, 114...119, "what the profile could hold instead")
+        // The whole point of the ruling: asking the question changes nothing. The
+        // stored plan is still the user's own until they tap the adjustment.
+        XCTAssertEqual(segment.hrLowBpm, 150)
+        XCTAssertEqual(segment.hrHighBpm, 165)
+    }
+
+    func testTheUnchangedBandIsStillRefusedAtRunTimeSoNothingIsLostByAsking() {
+        // Why persisting the repair was never a safety requirement: the runner
+        // arbitrates the *stored* band against the frozen basis, and a band whose
+        // lower edge is at or above the force-down ceiling is not steered at all —
+        // the segment runs fixed and the dashboard says so ("Band not reachable —
+        // running fixed"). Leaving the plan alone leaves the user informed, not
+        // exposed.
+        var target = heartRateTarget()
+        target.lowBpm = 150
+        target.highBpm = 165
+        let basis = HeartRateBasis(restingBpm: 60, maxBpm: 130)
+        XCTAssertEqual(HeartRateGovernor.arbitration(for: target, basis: basis), .notSteerable)
+    }
+
+    func testOnlyTheEdgeThatNoLongerFitsIsMovedByTheOfferedAdjustment() {
+        // The adjustment widens downward, never upward: the lower edge the user
+        // set survives whenever it can, because the upper edge is the one that
+        // costs effort (`HeartRateTarget.repairedBand`'s own rule).
+        let adjustment = SegmentBandFit.adjustment(forStoredLowBpm: 100, highBpm: 125,
+                                                   holdable: holdable(maxBpm: 130))
+        XCTAssertEqual(adjustment, 100...119)
+    }
+
+    func testAStoredPairInTheWrongOrderIsNotReportedAsUnholdable() {
+        // The governor normalises the pair itself (`HeartRateGovernor.band(for:)`),
+        // so an inverted band is not an unholdable one — and a notice about it
+        // would be a notice about a problem the loop does not have.
+        XCTAssertNil(SegmentBandFit.adjustment(forStoredLowBpm: 155, highBpm: 144,
+                                               holdable: holdable(maxBpm: 200)))
+    }
+
+    func testEveryOfferedAdjustmentIsItselfHoldableAndWideEnoughToHold() {
+        // Whatever the basis, tapping the offer must not produce a second
+        // unholdable band, and must not produce one narrower than the loop can
+        // hold (one 0.2 km/h step moves the steady state by roughly 2 bpm).
+        for maxBpm in [100, 120, 130, 150, 175, 200, 220] {
+            let range = holdable(maxBpm: maxBpm)
+            guard let adjustment = SegmentBandFit.adjustment(forStoredLowBpm: 150, highBpm: 165,
+                                                            holdable: range) else { continue }
+            XCTAssertGreaterThanOrEqual(adjustment.lowerBound, range.lowerBound, "max \(maxBpm)")
+            XCTAssertLessThanOrEqual(adjustment.upperBound, range.upperBound, "max \(maxBpm)")
+            XCTAssertGreaterThanOrEqual(adjustment.upperBound - adjustment.lowerBound,
+                                        HeartRateTarget.minBandWidthBpm, "max \(maxBpm)")
+            XCTAssertNil(SegmentBandFit.adjustment(forStoredLowBpm: adjustment.lowerBound,
+                                                   highBpm: adjustment.upperBound,
+                                                   holdable: range),
+                         "the adjustment must be a fixed point: max \(maxBpm)")
+        }
+    }
 }
