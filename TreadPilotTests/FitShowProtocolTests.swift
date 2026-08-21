@@ -403,6 +403,41 @@ final class FitShowProtocolTests: XCTestCase {
         windDown.wasObservedSlowing = true
         XCTAssertFalse(FitShowTreadmillClient.abandonRaisesFailure(windDown),
                        "an ordinary program end raises nothing, on this path as on every other")
+        // `startDemo()` now refuses entry outside the disconnected phases (below),
+        // and that guard must not have made this delegation vacuous: finding 145's
+        // own scenario ends in `.idle` — a console that refused a stop and then
+        // went out of radio range times out in `failPreparation` — which is a
+        // phase demo mode may still be entered from.
+        XCTAssertTrue(FitShowTreadmillClient.mayEnterDemo(phase: .idle))
+    }
+
+    // MARK: - Demo mode may not be laid over a live link
+    //
+    // `demoMode` is an invariant of the client — nothing real written, nothing
+    // real read — but the only thing that used to enforce it was `ContentView`'s
+    // routing table, which shows `ScanView` (and with it the DEMO MODE button)
+    // exactly in the three phases without a peripheral link. With a link up,
+    // `tick()` at 200 ms and `demoTick()` at 1 Hz would both write `state`, and
+    // `demoMode` short-circuits every command path, so a real belt at 10 km/h
+    // would have become uncommandable — its stop button mutating a local struct
+    // instead of sending a stop frame.
+
+    func testDemoModeMayBeEnteredFromEveryPhaseTheScanScreenShows() {
+        // The exact set `ContentView` routes to `ScanView`: the working entry
+        // path from the DEMO MODE button is unchanged.
+        for phase in [ConnectionPhase.idle, .scanning, .bluetoothOff] {
+            XCTAssertTrue(FitShowTreadmillClient.mayEnterDemo(phase: phase),
+                          "\(phase): no peripheral link, nothing to lay a demo over")
+        }
+    }
+
+    func testDemoModeIsRefusedWhileThereIsALinkToARealTreadmill() {
+        for phase in [ConnectionPhase.connecting(name: "T40"),
+                      .preparing(name: "T40"),
+                      .ready(name: "T40")] {
+            XCTAssertFalse(FitShowTreadmillClient.mayEnterDemo(phase: phase),
+                           "\(phase): a real belt must not become uncommandable")
+        }
     }
 
     // MARK: - The one reconcile rule (findings 75, 76, 80)

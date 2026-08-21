@@ -24,7 +24,7 @@ computed from your own body data, and a measurement of how reliable your Watch's
 actually is, recorded per workout. The zones shipped before the control did, deliberately, so
 the feed's reliability could be judged before it was allowed to steer.
 
-The test suite grew from 46 tests to 464.
+The test suite grew from 46 tests to 472.
 
 ### Features
 
@@ -138,6 +138,7 @@ _Verified:_
 
 - In demo mode the loop receives the synthetic heart rate and visibly steers
 - The trace is deterministic, and nothing outside demo mode is affected
+- Demo mode cannot be entered over a live treadmill link, and entering it consumes a deferred scan request, so a cold launch cannot pull a running demo back to the scan screen
 
 ### Bug fixes
 

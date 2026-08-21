@@ -789,7 +789,60 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         return Int(demoHeartRateBpm.rounded())
     }
 
+    /// May demo mode be entered from this phase? **The client owns this rule**,
+    /// and that is the point of the function existing: `demoMode` is an invariant
+    /// of this class — nothing real is written, nothing real is read — and until
+    /// now the only thing enforcing it was `ContentView`, which happens to render
+    /// the DEMO MODE button (in `ScanView`) exactly in the three phases below.
+    /// A UI routing table is not a guard; one new entry point to the same button
+    /// and a simulated belt would be laid over a moving one.
+    ///
+    /// What it prevents, concretely: with a link up there are two writers to
+    /// `state` — the 200 ms `tick()`, which runs as soon as there is a write
+    /// characteristic, and the 1 Hz `demoTick()` — so real frames and a
+    /// simulated belt would overwrite each other. Worse, `demoMode` short-circuits
+    /// every command path (`startBelt`, `requestStop`, `requestPause`, `write`):
+    /// a real belt at 10 km/h would become *uncommandable*, its stop button
+    /// mutating a local struct instead of sending a stop frame. And the demo
+    /// heart-rate expiry (finding 144) rests on "demo mode never reaches
+    /// `tick()`", which is only true while there is no characteristic to poll on.
+    ///
+    /// **Refusing, rather than tearing the link down first.** An orderly
+    /// teardown-then-demo would fix the two writers too, but it buys that by
+    /// having a UI button silently cancel a connection to a belt that may be
+    /// running, and `disconnect()`'s `abandonStopKeepingFailure()` would drop an
+    /// outstanding stop *while the radio still exists* — the exact opposite of
+    /// spec section 4, where the insistence belongs to the client because its
+    /// lifetime is the connection, and nothing that ends a program may clear an
+    /// outstanding stop. A button that does nothing is not a way to lose a belt;
+    /// a button that hands away the only radio that can stop one is. Refusing
+    /// also keeps `startDemo()` free of CoreBluetooth entirely, which is the
+    /// other half of what `demoMode` promises.
+    ///
+    /// Demo mode's own phase is `.ready(…)`, so this makes a second entry a no-op
+    /// as well. That is the right answer anyway: the demo the caller is asking
+    /// for is already running, and starting it again would wipe a workout in
+    /// progress.
+    ///
+    /// The switch is exhaustive on purpose — no `default`. A new
+    /// `ConnectionPhase` case has to be classified here rather than defaulting
+    /// into whichever answer happened to be listed first.
+    nonisolated static func mayEnterDemo(phase: ConnectionPhase) -> Bool {
+        switch phase {
+        case .idle, .scanning, .bluetoothOff:
+            // No peripheral link: nothing to write to, nothing polling, no
+            // characteristic for `tick()` to return past. These are exactly the
+            // phases `ContentView` shows `ScanView` — and therefore the DEMO MODE
+            // button — in, so the working entry path is unchanged.
+            return true
+        case .connecting, .preparing, .ready:
+            // A link to a real treadmill exists or is being established.
+            return false
+        }
+    }
+
     func startDemo() {
+        guard Self.mayEnterDemo(phase: phase) else { return }
         demoMode = true
         lastError = nil
         state = TreadmillState()
@@ -806,6 +859,20 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         // every other teardown: an ordinary program end, whose belt was seen
         // winding down, raises nothing.
         abandonStopKeepingFailure()
+        // A scan the app deferred is a scan nobody wants any more. On a cold
+        // launch the central's state is still `.unknown`, so `ScanView.onAppear`'s
+        // `startScan()` only sets `pendingScanRequest` and leaves the phase
+        // `.idle` — which is precisely a phase the scan screen, and with it the
+        // DEMO MODE button, is on screen in. Without this line the `poweredOn`
+        // callback that arrives a moment later calls `startScan()`, which sets
+        // `phase = .scanning` and empties `discovered`: the user is yanked out of
+        // a running demo back to the scan screen while `demoMode` stays true and
+        // the 1 Hz demo timer keeps ticking behind it. Only the flag is cleared;
+        // `central.stopScan()` would be a CoreBluetooth call on a path that
+        // promises not to make any. An actual scan in flight (entering demo from
+        // `.scanning`) is left exactly as it was — that is today's behaviour and
+        // not this fix's business.
+        pendingScanRequest = false
         demoHeartRateBpm = Self.demoRestingHeartRateBpm
         phase = .ready(name: String(localized: "Demo treadmill (simulated)"))
         demoTimer?.invalidate()
