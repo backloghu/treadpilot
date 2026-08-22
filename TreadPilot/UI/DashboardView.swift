@@ -177,7 +177,8 @@ struct DashboardView: View {
                     compactStat(heartRate.fromWatch
                                 ? String(localized: "Heart rate ⌚")
                                 : String(localized: "Heart rate"),
-                                heartRateText(for: heartRate.bpm))
+                                heartRateText(for: heartRate.bpm),
+                                watchSignalLost: heartRate.watchSignalLost)
                     compactStat(String(localized: "Elevation gain"),
                                 String(format: "%.0f m",
                                        recorder.activeSession?.elevationGainM ?? 0))
@@ -197,7 +198,8 @@ struct DashboardView: View {
                     stat(heartRate.fromWatch
                          ? String(localized: "Heart rate · Watch")
                          : String(localized: "Heart rate"),
-                         heartRateText(for: heartRate.bpm))
+                         heartRateText(for: heartRate.bpm),
+                         watchSignalLost: heartRate.watchSignalLost)
                 }
                 GridRow {
                     stat(String(localized: "Elevation gain"),
@@ -209,7 +211,8 @@ struct DashboardView: View {
         }
     }
 
-    private func compactStat(_ title: String, _ value: String) -> some View {
+    private func compactStat(_ title: String, _ value: String,
+                             watchSignalLost: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title.uppercased())
                 .font(Brand.display(8, .medium))
@@ -221,6 +224,7 @@ struct DashboardView: View {
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+            if watchSignalLost { watchSignalLostNote(size: 8) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
@@ -228,12 +232,91 @@ struct DashboardView: View {
         .overlay(RoundedRectangle(cornerRadius: Brand.radius).stroke(Brand.gridLine))
     }
 
-    /// `SessionRecorder`'s own precedence, called once per render and passed
-    /// down — see `statsGrid`, which reads `.bpm` and `.fromWatch` from a
-    /// single `let` instead of calling this a second or third time.
-    private var resolvedHeartRate: (bpm: Int, fromWatch: Bool) {
-        SessionRecorder.resolveHeartRate(watchBpm: watchHeartRate.freshHeartRate(),
-                                         handlebarBpm: client.state.heartRate)
+    /// The `NOT UPDATING` idiom (`statusHeader` above), applied to the one feed
+    /// whose absence used to show only as the zone chip quietly vanishing —
+    /// icon plus a short caps label, in `Brand.accent`.
+    ///
+    /// Accent rather than `Brand.fgMid`: in this file mid is the register for
+    /// the app doing its job (`STOPPING THE BELT…`, `You're in control`, the
+    /// governor's own `No fresh heart rate — holding`), accent is the register
+    /// for something that wants the user's eye (`NOT UPDATING`, `SUSPENDED —
+    /// BELT NOT RUNNING`), and `Brand.danger` is kept for a belt actually being
+    /// commanded down. A dropped Watch feed is not the app doing its job: it is
+    /// a condition outside the app that the user can fix, and while it lasts the
+    /// workout's coverage and the governor's only legal input are both gone. The
+    /// informational register has already been tried and failed once — a chip
+    /// disappearing *is* the quiet treatment, and a 45-minute hardware run went
+    /// by without the tester noticing it.
+    ///
+    /// It rides *below* the value rather than replacing the cell's title, so the
+    /// cell keeps saying what it is, and a handlebar reading that is genuinely
+    /// live stays on screen under its own plain `Heart rate` title (never the
+    /// `⌚`/`· Watch` one, which `resolvedHeartRate.fromWatch` alone earns) — the
+    /// warning is about the feed, not about the number next to it.
+    private func watchSignalLostNote(size: CGFloat) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "applewatch.slash")
+            Text("WATCH SIGNAL LOST").tracking(1)
+        }
+        .font(Brand.display(size, .semibold))
+        .foregroundStyle(Brand.accent)
+        .lineLimit(1)
+        // The same shrink-to-fit the compact value above already relies on: the
+        // three-column layout is narrower than this label at full size, and a
+        // slightly smaller warning beats a truncated one.
+        .minimumScaleFactor(0.7)
+    }
+
+    /// `SessionRecorder`'s own precedence, plus the one fact that precedence
+    /// deliberately hides: a *merged* reading cannot say whether the Watch feed
+    /// is missing, because a hand on the grips fills the same field. Called once
+    /// per render and passed down — see `statsGrid`, which reads `.bpm`,
+    /// `.fromWatch` and `.watchSignalLost` from a single `let` instead of
+    /// calling this a second or third time. The one `freshHeartRate()` read
+    /// feeds both answers, so the value and the warning can never disagree
+    /// about the same second.
+    private var resolvedHeartRate: (bpm: Int, fromWatch: Bool, watchSignalLost: Bool) {
+        let watchBpm = watchHeartRate.freshHeartRate()
+        let resolved = SessionRecorder.resolveHeartRate(watchBpm: watchBpm,
+                                                        handlebarBpm: client.state.heartRate)
+        return (resolved.bpm, resolved.fromWatch,
+                Self.isWatchSignalLost(
+                    isRecording: recorder.activeSession != nil,
+                    watchHasDelivered: recorder.activeSession?.watchProvidedHeartRate == true,
+                    freshWatchBpm: watchBpm))
+    }
+
+    /// Whether the Watch feed that *had* been delivering this workout is absent
+    /// right now. A 45-minute hardware run dropped the feed once and the only
+    /// sign was the zone chip vanishing from the cell below; nobody noticed
+    /// until the workout's 99% coverage figure said so afterwards.
+    ///
+    /// The three facts, and why each one is the one it is:
+    ///
+    /// - `watchHasDelivered` is `WorkoutSessionRecord.watchProvidedHeartRate` —
+    ///   the *same* evidence the coverage figure is counted from
+    ///   (`SessionRecorder.record` sets it on the first second the Watch
+    ///   supplies). `begin()` inserts a fresh record per workout, so this
+    ///   separates "had one and lost it" from "never had one at all": a user
+    ///   with no Watch, or one whose Watch app failed to launch, never sees this
+    ///   warning rather than seeing a permanent one.
+    /// - `freshWatchBpm` is `WatchHeartRateManager.freshHeartRate()`, never the
+    ///   merged reading, so a live handlebar value cannot suppress the warning.
+    ///   The handlebar sensor is not the feed coverage counts or the governor
+    ///   may consume (spec section 4, "Runner integration"), and hiding a lost
+    ///   Watch behind a grip-held number would be exactly the conflation that
+    ///   rule exists to prevent.
+    /// - `isRecording` scopes it to a workout — an idle dashboard between
+    ///   workouts has no feed to have lost. A pause does not clear it: the
+    ///   recorder keeps `activeSession` through `.paused`, and a feed lost
+    ///   during a pause is still lost.
+    ///
+    /// Pure, so all three cases are tested without a Watch, a treadmill or a
+    /// store.
+    nonisolated static func isWatchSignalLost(isRecording: Bool,
+                                              watchHasDelivered: Bool,
+                                              freshWatchBpm: Int) -> Bool {
+        isRecording && watchHasDelivered && freshWatchBpm <= 0
     }
 
     /// The frozen basis while a workout records, the live one otherwise (spec
@@ -249,12 +332,14 @@ struct DashboardView: View {
         return "\(zoneLabel) · " + SessionFormat.bpm(bpm)
     }
 
-    private func stat(_ title: String, _ value: String) -> some View {
+    private func stat(_ title: String, _ value: String,
+                      watchSignalLost: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             BrandEyebrow(title)
             Text(value)
                 .font(Brand.display(22, .semibold))
                 .foregroundStyle(.white)
+            if watchSignalLost { watchSignalLostNote(size: 10) }
         }
         .brandBox(padding: 14)
     }

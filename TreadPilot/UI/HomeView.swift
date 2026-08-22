@@ -102,16 +102,53 @@ struct HomeView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             if let first = selectedProgram.segments.first {
-                // One sentence from one key: this gives the translator context,
-                // and the word order can be rearranged freely per language. Reads
-                // the target through SegmentFormat.target(_:) — the same helper
-                // DashboardView's own next-segment preview uses (finding 105/385)
-                // — so a heart-rate-governed first segment previews its band here
-                // too, instead of always claiming a fixed speed the app may not
-                // actually hold.
-                Text("The belt starts on its own after a \(ProgramRunner.armCountdownSeconds)-second countdown. First segment: \(SegmentFormat.target(first.target)). \(Safety.standClear)")
+                programStartMessage(firstSegment: first)
             }
         }
+    }
+
+    /// The start dialog's message. Two whole sentences from two whole keys,
+    /// concatenated rather than interpolated into one: the existing sentence's
+    /// translation stays untouched, and the translator never has to make sense
+    /// of a trailing placeholder that is empty most of the time.
+    private func programStartMessage(firstSegment first: WorkoutSegment) -> Text {
+        // One sentence from one key: this gives the translator context, and the
+        // word order can be rearranged freely per language. Reads the target
+        // through SegmentFormat.target(_:) — the same helper DashboardView's own
+        // next-segment preview uses (finding 105/385) — so a heart-rate-governed
+        // first segment previews its band here too, instead of always claiming a
+        // fixed speed the app may not actually hold.
+        let base = Text("The belt starts on its own after a \(ProgramRunner.armCountdownSeconds)-second countdown. First segment: \(SegmentFormat.target(first.target)). \(Safety.standClear)")
+        guard let warning = Self.heartRateControlOffWarning(
+            for: selectedProgram,
+            isHeartRateControlEnabled: runner.heartRateControlEnabled
+        ) else { return base }
+        // Already localized by the helper, so this one is deliberately verbatim.
+        return base + Text(verbatim: " " + warning)
+    }
+
+    /// The warning a program full of heart-rate segments needs when the opt-in
+    /// is off. A hardware test forgot to switch heart-rate control on, started a
+    /// program whose segments ask for a band, and got no warning: the belt ran
+    /// the governed segments at their start speeds, and the first mention of it
+    /// was the running dashboard's own `Heart-rate control off` status line,
+    /// after the fact. This dialog is the last moment before the countdown owns
+    /// the belt, so it is said here instead.
+    ///
+    /// The condition is the same pair of facts `ProgramRunner.startGoverning`
+    /// refuses on — the program asking for a band at all, and the opt-in being
+    /// off — read through the runner's own `isHeartRateDriven(_:)` so a segment
+    /// kind that becomes governed later cannot be governed by the runner and
+    /// silently unmentioned here. Scope is deliberately one sentence about the
+    /// governed segments: a recovery segment with no feed already behaves as the
+    /// plain timed segment its cap promises, which is not news worth crowding
+    /// this dialog with.
+    ///
+    /// Pure, so the condition is tested without building a `View`.
+    nonisolated static func heartRateControlOffWarning(for program: WorkoutProgram,
+                                                       isHeartRateControlEnabled: Bool) -> String? {
+        guard !isHeartRateControlEnabled, ProgramRunner.isHeartRateDriven(program) else { return nil }
+        return String(localized: "Heart-rate control is off in the profile, so this program's heart-rate segments will run fixed, at their start speeds.")
     }
 
     private var deviceBox: some View {

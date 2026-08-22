@@ -3714,6 +3714,40 @@
           }
         }
       }
+    },
+    "WATCH SIGNAL LOST": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WATCH SIGNAL LOST"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MEGSZAKADT A JEL"
+          }
+        }
+      }
+    },
+    "Heart-rate control is off in the profile, so this program's heart-rate segments will run fixed, at their start speeds.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heart-rate control is off in the profile, so this program's heart-rate segments will run fixed, at their start speeds."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A pulzusvezérlés ki van kapcsolva a profilban, ezért a program pulzusvezérelt szegmensei rögzített módban, a kezdő sebességükön futnak."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
