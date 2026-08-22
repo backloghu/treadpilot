@@ -3732,36 +3732,36 @@
         }
       }
     },
-    "Records the heart-rate loop's own decisions, every belt command and every stop of a program workout into a file on this iPhone.": {
+    "Records the heart-rate loop's own decisions, every belt command and every stop of a workout into a file on this iPhone.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Records the heart-rate loop's own decisions, every belt command and every stop of a program workout into a file on this iPhone."
+            "value": "Records the heart-rate loop's own decisions, every belt command and every stop of a workout into a file on this iPhone."
           }
         },
         "hu": {
           "stringUnit": {
             "state": "translated",
-            "value": "A pulzusszabályzó saját döntéseit, minden szalagparancsot és minden leállítást fájlba írja ezen az iPhone-on, programedzés közben."
+            "value": "A pulzusszabályzó saját döntéseit, minden szalagparancsot és minden leállítást fájlba írja ezen az iPhone-on, edzés közben."
           }
         }
       }
     },
-    "No log yet. Switch this on, then start a program workout.": {
+    "No log yet. Switch this on, then start a workout.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No log yet. Switch this on, then start a program workout."
+            "value": "No log yet. Switch this on, then start a workout."
           }
         },
         "hu": {
           "stringUnit": {
             "state": "translated",
-            "value": "Még nincs napló. Kapcsold be, majd indíts egy programedzést."
+            "value": "Még nincs napló. Kapcsold be, majd indíts egy edzést."
           }
         }
       }
@@ -3813,6 +3813,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "A pulzusvezérlés ki van kapcsolva a profilban, ezért a program pulzusvezérelt szegmensei rögzített módban, a kezdő sebességükön futnak."
+          }
+        }
+      }
+    },
+    "SHARE DIAGNOSTIC LOG": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SHARE DIAGNOSTIC LOG"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DIAGNOSZTIKAI NAPLÓ MEGOSZTÁSA"
           }
         }
       }

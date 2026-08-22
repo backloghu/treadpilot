@@ -31,6 +31,16 @@ final class SessionRecorder: ObservableObject {
     /// (for example to close the Watch workout).
     var onWorkoutEnded: (@MainActor () -> Void)?
 
+    /// The developer-toggled event log. The runner opens a *program* workout's
+    /// file at arm time, with the program's own frame; a workout no program is
+    /// driving — a manual start in the app, or a belt started at the console —
+    /// begins and ends here instead, because this class is the one that knows a
+    /// workout is happening at all. Without this, the client's stop and pause
+    /// lifecycles — the events the log exists to make replayable — were
+    /// silently dropped for exactly the workouts a hardware test leans on most
+    /// (finding 206).
+    var diagnostics: DiagnosticLog = .shared
+
     private weak var client: FitShowTreadmillClient?
     private weak var runner: ProgramRunner?
     private var context: ModelContext?
@@ -72,6 +82,7 @@ final class SessionRecorder: ObservableObject {
         if let session = activeSession, session.isDeleted {
             activeSession = nil
             releaseHeartRateBasis()
+            logWorkoutEnded(because: "sessionDeleted")
             onWorkoutEnded?()
         }
 
@@ -80,7 +91,7 @@ final class SessionRecorder: ObservableObject {
         // If the connection dropped (or we disconnected), the running session closes.
         let connected = if case .ready = client.phase { true } else { false }
         if !connected {
-            if activeSession != nil { finish() }
+            if activeSession != nil { finish(because: "linkLost") }
             return
         }
 
@@ -92,7 +103,7 @@ final class SessionRecorder: ObservableObject {
             activeSession?.pausedSeconds += 1
             saveSoon()
         case .idle, .end:
-            if activeSession != nil { finish() }
+            if activeSession != nil { finish(because: "beltStopped") }
         default:
             break // counting down, stopping in progress, etc.
         }
@@ -110,6 +121,17 @@ final class SessionRecorder: ObservableObject {
         context.insert(session)
         activeSession = session
         freezeHeartRateBasis()
+        // After the freeze, so a manual workout's frame carries the basis this
+        // recording actually runs on. A program workout is already framed — the
+        // runner opened its file at arm time, before the belt ever moved — and
+        // must not be re-opened by the recording that runs alongside it.
+        if !diagnostics.isWorkoutLive {
+            diagnostics.beginWorkout(DiagnosticLog.manualWorkoutFields(
+                isControlEnabled: runner?.heartRateControlEnabled ?? false,
+                isDemo: client.demoMode,
+                basis: heartRateBasis,
+                limits: client.limits))
+        }
         speedSum = 0
         heartRateSum = 0
         heartRateCount = 0
@@ -272,10 +294,17 @@ final class SessionRecorder: ObservableObject {
         if saveCounter % 5 == 0 { try? context?.save() }
     }
 
-    private func finish() {
+    private func finish(because reason: String) {
         guard let session = activeSession, let context else { return }
         activeSession = nil
         releaseHeartRateBasis()
+        // Before the early returns below on purpose: a discarded botched start
+        // still ends the workout the log had open for it. For a program workout
+        // the runner has usually written this line already — its goal was
+        // reached before the belt ever stood — and `endWorkout` lets the first
+        // writer win, so this is the recording's own close for the workouts
+        // only the recording knows about.
+        logWorkoutEnded(because: reason, movingSeconds: session.movingSeconds)
         defer { onWorkoutEnded?() }
         if session.isDeleted { return }
         if session.movingSeconds < minimumKeptSeconds {
@@ -286,5 +315,16 @@ final class SessionRecorder: ObservableObject {
         session.endedAt = Date()
         try? context.save()
         finishedSession = session
+    }
+
+    /// The recording's own end line — `reason` says what the recorder saw
+    /// (`beltStopped`, `linkLost`, `sessionDeleted`), which for a manual
+    /// workout is the only account of the end there is.
+    private func logWorkoutEnded(because reason: String, movingSeconds: Int? = nil) {
+        guard diagnostics.isWorkoutOpen else { return }
+        diagnostics.endWorkout([
+            .text("reason", reason),
+            .int("movingSeconds", movingSeconds),
+        ])
     }
 }

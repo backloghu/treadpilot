@@ -121,6 +121,11 @@ enum DiagnosticEvent: String, Sendable, CaseIterable {
     /// The stop lifecycle: requested, insisted on, aided, obeyed, abandoned,
     /// failed.
     case stop
+    /// The pause lifecycle: requested, honoured, given up on (finding 205).
+    case pause
+    /// The program's suspend and resume transitions, with what caused each —
+    /// an app pause, a standstill, a belt no longer running, a moving belt.
+    case programSuspension
     /// A recovery goal's threshold crossings and hold window.
     case recovery
 }
@@ -260,6 +265,9 @@ final class DiagnosticLog: ObservableObject {
     private var anchor = ContinuousClock.now
     private var sequence = 0
     private var buffer: [String] = []
+    /// Whether the open workout has already had its `workoutEnded` line — see
+    /// `endWorkout(_:)` for who the two candidate writers are.
+    private var didEndCurrentWorkout = false
     /// Batches belonging to a file that has already been closed. A file switch
     /// happens on the main actor while a flush is in flight, so the lines have
     /// to keep their destination with them.
@@ -336,6 +344,7 @@ final class DiagnosticLog: ObservableObject {
         anchor = .now
         lastFlushAt = anchor
         sequence = 0
+        didEndCurrentWorkout = false
         feed = FeedTracker()
         staleness = StalenessTracker()
         recovery = RecoveryTracker()
@@ -345,8 +354,15 @@ final class DiagnosticLog: ObservableObject {
 
     /// The workout, over. Flushed at once: this is the line an analyst reads
     /// first, and the app may be killed the moment the user leaves the screen.
+    ///
+    /// First writer wins. Two owners can see the same workout end — the runner
+    /// announces a program's end at the moment its goal is reached, and
+    /// `SessionRecorder` announces the recording's end when the belt actually
+    /// stands — and a file with two `workoutEnded` lines has two "read me
+    /// first" lines and no answer to which one is true.
     func endWorkout(_ fields: @autoclosure () -> [DiagnosticField]) {
-        guard isEnabled, fileURL != nil else { return }
+        guard isEnabled, fileURL != nil, !didEndCurrentWorkout else { return }
+        didEndCurrentWorkout = true
         record(.workoutEnded, fields())
         scheduleFlush()
     }
@@ -354,6 +370,13 @@ final class DiagnosticLog: ObservableObject {
     /// Is a workout's file open? The runner asks before announcing an end, so a
     /// teardown of a program that was never logged says nothing.
     var isWorkoutOpen: Bool { fileURL != nil }
+
+    /// Is a workout open *and not yet ended*? `SessionRecorder` asks before
+    /// opening a manual workout's file: a program workout the runner has already
+    /// framed must not be re-opened by the recording that runs alongside it —
+    /// but a file whose workout has ended is only collecting a tail, and the
+    /// next workout deserves its own frame.
+    var isWorkoutLive: Bool { fileURL != nil && !didEndCurrentWorkout }
 
     func noteDemoMode(_ isDemo: Bool) { isDemoMode = isDemo }
 
@@ -715,6 +738,48 @@ final class DiagnosticLog: ObservableObject {
 /// `FitShowTreadmillClient.write`) contain a call and not a paragraph.
 extension DiagnosticLog {
 
+    /// The half of a workout's frame that does not depend on a program: the
+    /// frozen basis with the two ceilings derived from it — written out rather
+    /// than left as percentages to recompute, because they are what every tally
+    /// in the file is counted against — and the device's limits.
+    private nonisolated static func basisAndLimitFields(basis: HeartRateBasis?,
+                                                        limits: TreadmillLimits)
+        -> [DiagnosticField] {
+        let ceilings = basis.map { HeartRateGovernor.ceilings(for: $0) }
+        return [
+            .int("basisMaxBpm", basis?.maxBpm),
+            .int("basisRestingBpm", basis?.restingBpm),
+            .int("forceDownCeilingBpm", ceilings?.forceDownBpm),
+            .int("stopCeilingBpm", ceilings?.stopBpm),
+            .speed("limitMinSpeedKmh", limits.minSpeedKmh),
+            .speed("limitMaxSpeedKmh", limits.maxSpeedKmh),
+            .int("limitMinIncline", limits.minIncline),
+            .int("limitMaxIncline", limits.maxIncline),
+            .flag("limitsFromDevice", limits.fromDevice),
+        ]
+    }
+
+    /// The frame of a workout no program is driving — a manual start in the
+    /// app, or a belt started at the console. Same event and same field names
+    /// as a program workout's frame, so a reader's grep does not care which
+    /// kind it was: `program` is null and `manual` says so explicitly. The
+    /// governor's constants are absent because nothing governs a manual
+    /// workout; the stop and pause lifecycles carry their own windows per
+    /// event.
+    nonisolated static func manualWorkoutFields(isControlEnabled: Bool,
+                                                isDemo: Bool,
+                                                basis: HeartRateBasis?,
+                                                limits: TreadmillLimits) -> [DiagnosticField] {
+        [
+            .text("program", nil),
+            .flag("manual", true),
+            .flag("heartRateControlEnabled", isControlEnabled),
+            .flag("demoMode", isDemo),
+            .text("appVersion", appVersion()),
+        ]
+        + basisAndLimitFields(basis: basis, limits: limits)
+    }
+
     nonisolated static func workoutFields(program: WorkoutProgram,
                                          isHeartRateDriven: Bool,
                                          isControlEnabled: Bool,
@@ -728,20 +793,9 @@ extension DiagnosticLog {
             .flag("heartRateControlEnabled", isControlEnabled),
             .flag("demoMode", isDemo),
             .text("appVersion", appVersion()),
-            .int("basisMaxBpm", basis?.maxBpm),
-            .int("basisRestingBpm", basis?.restingBpm),
         ]
-        // The two ceilings, written out rather than left as percentages to
-        // recompute: they are what every tally in this file is counted against.
-        let ceilings = basis.map { HeartRateGovernor.ceilings(for: $0) }
+        fields += basisAndLimitFields(basis: basis, limits: limits)
         fields += [
-            .int("forceDownCeilingBpm", ceilings?.forceDownBpm),
-            .int("stopCeilingBpm", ceilings?.stopBpm),
-            .speed("limitMinSpeedKmh", limits.minSpeedKmh),
-            .speed("limitMaxSpeedKmh", limits.maxSpeedKmh),
-            .int("limitMinIncline", limits.minIncline),
-            .int("limitMaxIncline", limits.maxIncline),
-            .flag("limitsFromDevice", limits.fromDevice),
             // The governor's constants. With these on the first line of the file
             // the whole run can be checked against the rules without the source.
             .seconds("evaluationIntervalSeconds", HeartRateGovernor.evaluationIntervalSeconds),

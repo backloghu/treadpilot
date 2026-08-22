@@ -8,6 +8,12 @@ import SwiftUI
 struct SummaryView: View {
     let session: WorkoutSessionRecord
     @Environment(\.dismiss) private var dismiss
+    /// The developer log's share affordance, where a tester actually looks for
+    /// it: on the summary of the workout they just ran (finding 206 — the first
+    /// hardware test went looking for the export here, and the profile's
+    /// Developer section is where nobody thinks to scroll mid-test). nil —
+    /// toggle off, or nothing written — renders nothing at all.
+    @State private var diagnosticLogURL: URL?
 
     var body: some View {
         NavigationStack {
@@ -34,6 +40,17 @@ struct SummaryView: View {
                     HealthSyncSection(session: session)
 
                     WorkoutExportSection(session: session)
+
+                    if let diagnosticLogURL {
+                        ShareLink(item: diagnosticLogURL) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "square.and.arrow.up")
+                                Text("SHARE DIAGNOSTIC LOG").tracking(1.2)
+                            }
+                            .font(Brand.display(12, .semibold))
+                            .foregroundStyle(Brand.accent)
+                        }
+                    }
 
                     Button {
                         dismiss()

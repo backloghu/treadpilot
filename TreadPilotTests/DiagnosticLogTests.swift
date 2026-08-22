@@ -246,6 +246,61 @@ final class DiagnosticLogTests: XCTestCase {
         XCTAssertEqual(feed.last?["gapSeconds"] as? Double, 3.0)
     }
 
+    // MARK: - One workout, two possible narrators (finding 206)
+
+    func testTheWorkoutIsLiveFromBeginUntilItsFirstEndLine() {
+        let log = makeLog(enabled: true)
+        XCTAssertFalse(log.isWorkoutLive)
+        log.beginWorkout([.text("program", "Zone 3")])
+        XCTAssertTrue(log.isWorkoutLive)
+        log.endWorkout([.text("reason", "programComplete")])
+        XCTAssertTrue(log.isWorkoutOpen,
+                      "the file stays open for the post-end tail — a stop still winding down")
+        XCTAssertFalse(log.isWorkoutLive,
+                       "but the workout has ended: the next recording deserves its own frame")
+        log.beginWorkout([.text("program", nil)])
+        XCTAssertTrue(log.isWorkoutLive)
+    }
+
+    func testTheFirstEndLineWinsAndTheSecondNarratorSaysNothing() async throws {
+        // The runner announces a program's end when its goal is reached;
+        // `SessionRecorder` announces the recording's end when the belt actually
+        // stands. Both see the same workout end, and a file with two "read me
+        // first" lines has no answer to which one is true.
+        let log = makeLog(enabled: true)
+        log.beginWorkout([.text("program", "Zone 3")])
+        log.endWorkout([.text("reason", "programComplete")])
+        log.endWorkout([.text("reason", "beltStopped")])
+        await log.flush()
+
+        let ends = try lines().filter { $0["event"] as? String == "workoutEnded" }
+        XCTAssertEqual(ends.count, 1)
+        XCTAssertEqual(ends.first?["reason"] as? String, "programComplete",
+                       "the goal was reached before the belt stood: the runner narrates")
+    }
+
+    func testAManualWorkoutsFrameNamesTheKindAndCarriesNoProgram() throws {
+        let line = DiagnosticLog.line(
+            .workoutBegan,
+            fields: DiagnosticLog.manualWorkoutFields(
+                isControlEnabled: true, isDemo: false,
+                basis: HeartRateBasis(restingBpm: 60, maxBpm: 180),
+                limits: TreadmillLimits()),
+            at: "2026-08-22T18:00:00.000Z", workoutSeconds: 0, sequence: 1)
+        let object = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any])
+        XCTAssertTrue(object["program"] is NSNull,
+                      "no program drives a manual workout, and the file says so")
+        XCTAssertEqual(object["manual"] as? Bool, true)
+        XCTAssertEqual(object["heartRateControlEnabled"] as? Bool, true)
+        // The frame still carries what every later line is read against: the
+        // frozen basis with its ceilings, and the device's limits.
+        XCTAssertEqual(object["basisMaxBpm"] as? Int, 180)
+        XCTAssertNotNil(object["forceDownCeilingBpm"] as? Int)
+        XCTAssertNotNil(object["stopCeilingBpm"] as? Int)
+        XCTAssertEqual(object["limitMaxSpeedKmh"] as? Double, 16.0)
+    }
+
     // MARK: - A governed run, through the shipped runner
 
     func testAGovernedRunEmitsTheKeyEventKinds() async throws {
@@ -460,6 +515,9 @@ private final class LoggingStubTreadmill: TreadmillControlling {
     private(set) var targetIncline: Int
     private(set) var isStopOutstanding = false
     private(set) var stopNotObeyed = false
+    /// The world's hand: production sets and clears this fact in the client,
+    /// a test scripts the moments directly.
+    var isPauseOutstanding = false
 
     private(set) var targetWrites: [HeartRateGovernor.Command] = []
     private(set) var stopRequests = 0

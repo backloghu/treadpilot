@@ -185,6 +185,7 @@ private final class MinimalGovernedTreadmill: TreadmillControlling {
     var targetIncline = 0
     private(set) var isStopOutstanding = false
     private(set) var stopNotObeyed = false
+    var isPauseOutstanding = false
     private(set) var stopRequests = 0
 
     init(speedKmh: Double) {

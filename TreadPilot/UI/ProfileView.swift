@@ -159,7 +159,7 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Diagnostic log")
                             .foregroundStyle(.white)
-                        Text("Records the heart-rate loop's own decisions, every belt command and every stop of a program workout into a file on this iPhone.")
+                        Text("Records the heart-rate loop's own decisions, every belt command and every stop of a workout into a file on this iPhone.")
                             .font(.caption2)
                             .foregroundStyle(Brand.grey)
                     }
@@ -167,7 +167,7 @@ struct ProfileView: View {
                 .tint(Brand.accent)
                 .listRowBackground(Brand.bgElev1)
                 if diagnosticLogs.isEmpty {
-                    Text("No log yet. Switch this on, then start a program workout.")
+                    Text("No log yet. Switch this on, then start a workout.")
                         .font(.footnote)
                         .foregroundStyle(Brand.grey)
                         .listRowBackground(Brand.bgElev1)
