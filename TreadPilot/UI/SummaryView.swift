@@ -48,6 +48,11 @@ struct SummaryView: View {
             }
             .toolbarBackground(Brand.bgDeep, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            // Finding 203, same as ContentView's stack: a principal item with no
+            // navigationTitle leaves the default *large* title layout reserving
+            // a blank 52pt row under the bar. This sheet owns its own stack, so
+            // it needs its own line.
+            .navigationBarTitleDisplayMode(.inline)
         }
         .preferredColorScheme(.dark)
     }

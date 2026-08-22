@@ -72,6 +72,19 @@ struct ContentView: View {
                 }
             }
             .background(Brand.bgDeep)
+            // Finding 203: the empty band between the navigation bar and the
+            // first row of the workout screen. Measured, not guessed — it is
+            // neither padding nor a safe-area quirk: every phase screen supplies
+            // a `.principal` toolbar item and no `navigationTitle`, and nothing
+            // ever set a display mode, so the stack kept its default *large*
+            // title layout and reserved the large-title row anyway — blank,
+            // because there is no title to draw in it. On an iPhone 17 the first
+            // scroll row started at y = 188pt and starts at 136pt with this
+            // line: 52pt of dead band, the height of that row, on the workout,
+            // home and scan screens alike. It belongs here rather than on each
+            // screen because the display mode is the navigation stack's, and all
+            // four phases below share this one stack.
+            .navigationBarTitleDisplayMode(.inline)
         }
         .tint(Brand.accent)
         .preferredColorScheme(.dark)
