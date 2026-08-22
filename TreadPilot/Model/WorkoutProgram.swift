@@ -669,8 +669,28 @@ enum SegmentFormat {
     }
 
     /// "3.2 / 5.0 km" — the dashboard's large readout for a distance goal.
+    ///
+    /// A progress display may only show the goal figure once the segment has
+    /// truly finished. Rounding the live distance to one decimal used to show
+    /// "1.0 / 1.0 km" for the last 50 metres of a 1.0 km segment, while the
+    /// belt kept running for another 20–30 seconds (finding: hardware test
+    /// 2026-08-22). So the live side truncates toward zero at the protocol's
+    /// 0.1 km resolution instead of rounding, computed in integer tenths —
+    /// the same reason `HeartRateGovernor.speedUnits` compares speeds as
+    /// integers rather than as Doubles at a 0.1 quantum: a Double truncation
+    /// like `(km * 10).rounded(.down) / 10` would drift for the same reason a
+    /// `>= 0.1` test does. The goal side keeps `%.1f`, since goals are always
+    /// set on exact 0.1 steps. Once `km` has reached `goalKm`, the goal
+    /// figure is shown exactly rather than recomputed through the
+    /// truncation, so a floating-point sliver past the goal at the moment of
+    /// completion can only ever render as the goal, never as one tick short
+    /// of it.
     static func distanceProgress(_ km: Double, goalKm: Double) -> String {
-        String(format: "%.1f / %.1f km", km, goalKm)
+        guard km < goalKm else {
+            return String(format: "%.1f / %.1f km", goalKm, goalKm)
+        }
+        let tenths = Int((km * 10).rounded(.down))
+        return String(format: "%.1f / %.1f km", Double(tenths) / 10, goalKm)
     }
 
     /// "7:30 min/km" — runners think in pace. Nil for a standing belt, and for

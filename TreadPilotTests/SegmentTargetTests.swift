@@ -593,6 +593,23 @@ final class SegmentTargetTests: XCTestCase {
         XCTAssertTrue(rendered.hasPrefix("140"), rendered)
     }
 
+    /// Hardware test 2026-08-22: `%.1f` on the live distance rounded 0.95 km
+    /// up to "1.0", so a 1.0 km segment showed "1.0 / 1.0 km" for the last 50
+    /// metres while it kept running. The progress side must truncate, not
+    /// round, until the goal is truly reached.
+    func testDistanceProgressTruncatesRatherThanRoundingBeforeCompletion() {
+        XCTAssertEqual(SegmentFormat.distanceProgress(0.95, goalKm: 1.0), "0.9 / 1.0 km")
+        XCTAssertEqual(SegmentFormat.distanceProgress(0.999, goalKm: 1.0), "0.9 / 1.0 km")
+        XCTAssertEqual(SegmentFormat.distanceProgress(0.25, goalKm: 0.3), "0.2 / 0.3 km")
+    }
+
+    /// At and past the goal, the display must show the goal figure exactly —
+    /// never one tick short of it because of a truncated Double.
+    func testDistanceProgressShowsTheGoalExactlyAtAndPastCompletion() {
+        XCTAssertEqual(SegmentFormat.distanceProgress(1.0, goalKm: 1.0), "1.0 / 1.0 km")
+        XCTAssertEqual(SegmentFormat.distanceProgress(1.02, goalKm: 1.0), "1.0 / 1.0 km")
+    }
+
     // MARK: - Finding 118: the band editor cannot trap
 
     /// The exact crash: a fresh segment seeds the default 130–145 band, and a
