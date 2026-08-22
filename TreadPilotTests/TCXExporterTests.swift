@@ -172,6 +172,105 @@ final class TCXExporterTests: XCTestCase {
         XCTAssertEqual(parse(TCXExporter.document(for: session)).texts["Calories"], ["210"])
     }
 
+    // MARK: - Distance synthesis (#206: the Strava pace sawtooth)
+
+    func testAConstantSpeedStaircaseSynthesizesASmoothlyAscendingTrack() throws {
+        // The real FitShow reports distance in 0.1 km steps
+        // (`FitShowProtocol.swift`: `raw / 10`), so a constant 6 km/h run
+        // (1.667 m/s) reports the same cumulative distance for 60 seconds at
+        // a time before jumping straight to the next tenth. Copying that
+        // into Strava's DistanceMeters is the sawtooth this fix removes.
+        let speedKmh = 6.0
+        let seconds = (1...180).map { second -> Second in
+            let trueKm = Double(second) * speedKmh / 3600
+            let quantizedKm = (trueKm * 10).rounded(.down) / 10
+            return Second(speedKmh: speedKmh, distanceKmOverride: quantizedKm)
+        }
+        let session = try makeSession(seconds: seconds)
+        // The pad's own recorded total, on the same 0.1 km grid as every
+        // sample fed into it above.
+        session.distanceKm = 0.3
+
+        let parsed = parse(TCXExporter.document(for: session))
+        let distances = (parsed.texts["DistanceMeters"] ?? []).compactMap { Double($0) }
+        let track = Array(distances.dropFirst())
+        XCTAssertEqual(track.count, 180)
+
+        // The staircase input plateaus for tens of seconds at a time; the
+        // synthesized output must not — every second moved, so every second
+        // advances.
+        let deltas = zip(track, track.dropFirst()).map { $1 - $0 }
+        XCTAssertTrue(deltas.allSatisfy { $0 > 0 }, "expected every step to advance: \(deltas)")
+
+        // Constant speed integrates to a straight line, so post-rescale the
+        // deltas should all but agree with each other.
+        let averageDelta = deltas.reduce(0, +) / Double(deltas.count)
+        for delta in deltas {
+            XCTAssertEqual(delta, averageDelta, accuracy: 0.05, "expected an even step: \(deltas)")
+        }
+
+        XCTAssertEqual(track.last!, session.distanceKm * 1000, accuracy: 0.01)
+    }
+
+    func testATwoPhaseSpeedChangeKeepsItsRatioAfterRescaling() throws {
+        // 4 km/h then double to 8 km/h: the rescale is one constant
+        // multiplier over the whole series, so the ratio between the two
+        // phases' own per-second distance must survive it untouched.
+        let slow = Array(repeating: Second(speedKmh: 4.0), count: 60)
+        let fast = Array(repeating: Second(speedKmh: 8.0), count: 60)
+        let session = try makeSession(seconds: slow + fast)
+
+        let parsed = parse(TCXExporter.document(for: session))
+        let distances = (parsed.texts["DistanceMeters"] ?? []).compactMap { Double($0) }
+        let track = Array(distances.dropFirst())
+        XCTAssertEqual(track.count, 120)
+
+        let deltas = zip(track, track.dropFirst()).map { $1 - $0 }
+        // Comfortably inside each phase, clear of the one transitional step.
+        let phase1 = deltas[5..<55]
+        let phase2 = deltas[65..<115]
+        let phase1Average = phase1.reduce(0, +) / Double(phase1.count)
+        let phase2Average = phase2.reduce(0, +) / Double(phase2.count)
+
+        XCTAssertEqual(phase2Average / phase1Average, 2.0, accuracy: 0.05)
+    }
+
+    func testAllZeroSpeedFallsBackToTheRecordedStaircase() throws {
+        // No usable speed to integrate — a recording gap, or a belt that
+        // reported distance but not speed — so there is nothing to
+        // synthesize from, and the pad's own per-sample series goes out
+        // exactly as it did before this fix.
+        let recordedKm: [Double] = [0.1, 0.1, 0.1, 0.2, 0.2, 0.3]
+        let seconds = recordedKm.map { Second(speedKmh: 0, distanceKmOverride: $0) }
+        let session = try makeSession(seconds: seconds)
+        session.distanceKm = recordedKm.last!
+
+        let parsed = parse(TCXExporter.document(for: session))
+        let distances = (parsed.texts["DistanceMeters"] ?? []).compactMap { Double($0) }
+        let track = Array(distances.dropFirst())
+
+        XCTAssertEqual(track.count, recordedKm.count)
+        for (actual, expectedKm) in zip(track, recordedKm) {
+            XCTAssertEqual(actual, expectedKm * 1000, accuracy: 0.01)
+        }
+    }
+
+    func testTheLastTrackpointDistanceMatchesTheLapDistanceExactly() throws {
+        // Strava — and a rider comparing the two numbers by eye — should see
+        // one consistent total, not a rescaled approximation that reads a
+        // few millimetres off the lap summary.
+        let session = try makeSession(seconds: Array(repeating: Second(speedKmh: 5.0), count: 45))
+        // A value the rescale's own division would not land on by chance, to
+        // prove the match is deliberate rather than coincidental.
+        session.distanceKm = 0.061847
+
+        let parsed = parse(TCXExporter.document(for: session))
+        let allDistances = parsed.texts["DistanceMeters"] ?? []
+        XCTAssertEqual(allDistances.count, 46)
+        XCTAssertEqual(allDistances.last, allDistances.first,
+                       "the last trackpoint must render identical to the Lap total")
+    }
+
     // MARK: - Locale and escaping
 
     func testDecimalsUseAPointWhateverTheDeviceLocaleIs() throws {
@@ -298,6 +397,11 @@ final class TCXExporterTests: XCTestCase {
         var speedKmh: Double = 9.0
         var heartRate: Int = 0
         var wallClock: WallClock = .movingOffset
+        /// Overrides the smooth cumulative distance `makeSession` would
+        /// otherwise compute for this second. The staircase fixtures use
+        /// this to reproduce the FitShow's own 0.1 km-quantized odometer
+        /// instead of the continuous integral every other fixture gets.
+        var distanceKmOverride: Double? = nil
     }
 
     /// Where a sample's wall clock sits. `.movingOffset` is the pause-free case
@@ -352,13 +456,17 @@ final class TCXExporterTests: XCTestCase {
         session.pausedSeconds = pausedSeconds
 
         var cumulativeKm = 0.0
+        var lastRecordedDistanceKm = 0.0
         for (index, second) in seconds.enumerated() {
             cumulativeKm += second.speedKmh / 3600
+            // A staircase fixture overrides this per second; every other
+            // fixture keeps the smooth running integral.
+            let recordedDistanceKm = second.distanceKmOverride ?? cumulativeKm
             let sample = WorkoutSampleRecord(offsetSeconds: index + 1,
                                              speedKmh: second.speedKmh,
                                              inclinePercent: 0,
                                              heartRate: second.heartRate,
-                                             distanceKm: cumulativeKm)
+                                             distanceKm: recordedDistanceKm)
             switch second.wallClock {
             case .movingOffset:
                 sample.timestamp = startedAt.addingTimeInterval(TimeInterval(index + 1))
@@ -369,9 +477,10 @@ final class TCXExporterTests: XCTestCase {
             }
             context.insert(sample)
             sample.session = session
+            lastRecordedDistanceKm = recordedDistanceKm
         }
 
-        session.distanceKm = cumulativeKm
+        session.distanceKm = lastRecordedDistanceKm
         let speeds = seconds.map(\.speedKmh)
         session.avgSpeedKmh = speeds.isEmpty ? 0 : speeds.reduce(0, +) / Double(speeds.count)
         session.maxSpeedKmh = speeds.max() ?? 0

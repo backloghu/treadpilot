@@ -139,20 +139,32 @@ struct TCXExporter {
     private static func trackpoints(for session: WorkoutSessionRecord,
                                     start: Date, end: Date,
                                     clock: UTCTimestamps) -> [String] {
-        var lines: [String] = []
+        // Collected before any line is built: the distance synthesis below
+        // must integrate over exactly this ordered, end-filtered sequence, so
+        // its output lines up index for index with the trackpoints emitted
+        // from it.
+        var emitted: [(sample: WorkoutSampleRecord, timestamp: Date)] = []
         for sample in session.sortedSamples {
             let timestamp = sample.timestamp > start
                 ? sample.timestamp
                 : start.addingTimeInterval(TimeInterval(sample.offsetSeconds))
             guard timestamp <= end else { continue }
+            emitted.append((sample, timestamp))
+        }
+
+        let distancesMeters = synthesizedDistancesMeters(
+            for: emitted.map { $0.sample }, recordedTotalKm: session.distanceKm)
+
+        var lines: [String] = []
+        for (index, entry) in emitted.enumerated() {
             lines.append("          <Trackpoint>")
-            lines.append("            <Time>\(clock.string(from: timestamp))</Time>")
+            lines.append("            <Time>\(clock.string(from: entry.timestamp))</Time>")
             lines.append("            <DistanceMeters>"
-                         + decimal(sample.distanceKm * 1000, places: 2)
+                         + decimal(distancesMeters[index], places: 2)
                          + "</DistanceMeters>")
-            if sample.heartRate > 0 {
+            if entry.sample.heartRate > 0 {
                 lines.append("            <HeartRateBpm><Value>"
-                             + "\(bpm(sample.heartRate))"
+                             + "\(bpm(entry.sample.heartRate))"
                              + "</Value></HeartRateBpm>")
             }
             // The extension's unit is m/s, so the recorded km/h is converted
@@ -160,13 +172,67 @@ struct TCXExporter {
             lines.append("            <Extensions>")
             lines.append("              <ns3:TPX>")
             lines.append("                <ns3:Speed>"
-                         + decimal(sample.speedKmh / 3.6, places: 3)
+                         + decimal(entry.sample.speedKmh / 3.6, places: 3)
                          + "</ns3:Speed>")
             lines.append("              </ns3:TPX>")
             lines.append("            </Extensions>")
             lines.append("          </Trackpoint>")
         }
         return lines
+    }
+
+    /// Per-trackpoint `DistanceMeters`, synthesized from belt speed rather
+    /// than copied verbatim from the pad's own odometer.
+    ///
+    /// The FitShow status frame reports distance in 0.1 km units
+    /// (`FitShowProtocol.swift`: `raw / 10`) — the pad cannot do finer — so
+    /// the per-second `sample.distanceKm` this function would otherwise copy
+    /// is a 100 m staircase, plateaued for 40-70 seconds at walking/running
+    /// speed. Strava derives pace from consecutive `DistanceMeters` deltas,
+    /// so a staircase reads as alternating stops and sprints: the sawtooth
+    /// pace chart this function exists to remove. The fix integrates the
+    /// belt's own per-sample speed into a smooth cumulative series, then
+    /// rescales that series so its own total lands exactly on
+    /// `recordedTotalKm` — the pad's own total stays authoritative, only the
+    /// shape between the two ends changes. A session with no usable speed
+    /// (every sample at 0 km/h) or no recorded distance has nothing to
+    /// integrate or rescale to, so it falls back to the pad's own recorded
+    /// series unchanged.
+    ///
+    /// `samples` must be the same ordered, end-filtered sequence the caller
+    /// is about to emit as trackpoints — the result lines up with it index
+    /// for index.
+    private static func synthesizedDistancesMeters(for samples: [WorkoutSampleRecord],
+                                                    recordedTotalKm: Double) -> [Double] {
+        guard !samples.isEmpty else { return [] }
+
+        var integratedKm: [Double] = []
+        integratedKm.reserveCapacity(samples.count)
+        var runningKm = 0.0
+        var previousOffsetSeconds = samples[0].offsetSeconds
+        for (index, sample) in samples.enumerated() {
+            let dtSeconds = index == 0
+                ? 1.0
+                : Double(max(0, sample.offsetSeconds - previousOffsetSeconds))
+            runningKm += sample.speedKmh / 3600.0 * dtSeconds
+            integratedKm.append(runningKm)
+            previousOffsetSeconds = sample.offsetSeconds
+        }
+
+        let integratedTotalKm = integratedKm[integratedKm.count - 1]
+        guard recordedTotalKm > 0, integratedTotalKm > 0 else {
+            return samples.map { $0.distanceKm * 1000 }
+        }
+
+        let scale = recordedTotalKm / integratedTotalKm
+        var distancesMeters = integratedKm.map { $0 * scale * 1000 }
+        // The rescale lands the last point on `recordedTotalKm` to within
+        // float noise, but "to within" is not good enough: Strava — and this
+        // file's own exact-match test — expect the last trackpoint to render
+        // identical to the Lap's own DistanceMeters, so it is pinned rather
+        // than trusted to the arithmetic.
+        distancesMeters[distancesMeters.count - 1] = recordedTotalKm * 1000
+        return distancesMeters
     }
 
     /// The treadmill, named. `Device_t` is the one `Creator` shape whose members
