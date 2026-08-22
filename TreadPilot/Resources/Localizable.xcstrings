@@ -3629,6 +3629,91 @@
           }
         }
       }
+    },
+    "Developer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Developer"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fejlesztői"
+          }
+        }
+      }
+    },
+    "Diagnostic log": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostic log"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnosztikai napló"
+          }
+        }
+      }
+    },
+    "Records the heart-rate loop's own decisions, every belt command and every stop of a program workout into a file on this iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records the heart-rate loop's own decisions, every belt command and every stop of a program workout into a file on this iPhone."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A pulzusszabályzó saját döntéseit, minden szalagparancsot és minden leállítást fájlba írja ezen az iPhone-on, programedzés közben."
+          }
+        }
+      }
+    },
+    "No log yet. Switch this on, then start a program workout.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No log yet. Switch this on, then start a program workout."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Még nincs napló. Kapcsold be, majd indíts egy programedzést."
+          }
+        }
+      }
+    },
+    "Off by default. Nothing leaves this iPhone: the app writes one JSON line per event — governor decisions with their inputs, belt commands, stops, feed gaps — and a file only goes anywhere if you share it. The ten most recent workouts are kept.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off by default. Nothing leaves this iPhone: the app writes one JSON line per event — governor decisions with their inputs, belt commands, stops, feed gaps — and a file only goes anywhere if you share it. The ten most recent workouts are kept."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alapértelmezetten ki van kapcsolva. Semmi nem hagyja el ezt az iPhone-t: az app eseményenként egy JSON-sort ír — a szabályzó döntéseit a bemeneteikkel, a szalagparancsokat, a leállításokat, a pulzusjel kimaradásait —, és a fájl csak akkor kerül bárhová, ha megosztod. A tíz legutóbbi edzés naplója marad meg."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

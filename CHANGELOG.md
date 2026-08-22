@@ -24,7 +24,7 @@ computed from your own body data, and a measurement of how reliable your Watch's
 actually is, recorded per workout. The zones shipped before the control did, deliberately, so
 the feed's reliability could be judged before it was allowed to steer.
 
-The test suite grew from 46 tests to 472.
+The test suite grew from 46 tests to 487.
 
 ### Features
 
@@ -139,6 +139,23 @@ _Verified:_
 - In demo mode the loop receives the synthetic heart rate and visibly steers
 - The trace is deterministic, and nothing outside demo mode is affected
 - Demo mode cannot be entered over a live treadmill link, and entering it consumes a deferred scan request, so a cold launch cannot pull a running demo back to the scan screen
+
+#### A diagnostic log for the hardware test
+
+**Need:** The governor's tests cover the logic; the real belt, console and Watch are where the
+unknowns live — and a tester's account of a run cannot be replayed.
+
+**Solution:** A developer toggle in the profile, off by default. Switched on, every program
+workout writes a structured event log: each governor evaluation with its full input and
+decision, every write with its requested and clamped values and who asked for it, manual
+interventions, staleness and feed gaps, and the stop lifecycle. The log stays on the device
+and leaves it only through the share sheet.
+
+_Verified:_
+
+- With the toggle off nothing is written, and the cost at every call site is a single flag read
+- The pure governor contains no logging at all; every number in the log comes from the caller or from the governor's own helpers, so log and law cannot disagree
+- A governed demo workout produces every key event kind; files rotate at ten
 
 ### Bug fixes
 

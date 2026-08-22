@@ -173,6 +173,13 @@ final class ProgramRunner: ObservableObject {
     /// ladder is consulted, the boundary clamp — was only ever tested against a
     /// hand-rolled copy of that order living in a test file (finding 103).
     private weak var client: (any TreadmillControlling)?
+    /// The developer-toggled event log. **Observation only**: nothing this class
+    /// decides may depend on it, every call site is a `record`/`note` and the
+    /// governor itself is not instrumented at all. Settable rather than `let` so
+    /// a test can point it at a temporary directory; the default is the one
+    /// instance the app has, which keeps the composition root out of it (see
+    /// `DiagnosticLog`).
+    var diagnostics: DiagnosticLog = .shared
     private var timer: Timer?
     /// The workout's governor state, including the current segment's own. `tick()`
     /// reaches the loop through this and nothing else.
@@ -1196,6 +1203,17 @@ final class ProgramRunner: ObservableObject {
         // A new workout's scope starts here, so the previous one's stop reason
         // is not evidence about this one — see `governorStopReason`.
         governorStopReason = nil
+        // …and so does the diagnostic log's file, for the same reason: the frame
+        // every later line is read against — the opt-in, the frozen basis, the
+        // device's limits — is this workout's and not the last one's.
+        guard let program, let client else { return }
+        diagnostics.beginWorkout(
+            DiagnosticLog.workoutFields(program: program,
+                                        isHeartRateDriven: Self.isHeartRateDriven(program),
+                                        isControlEnabled: heartRateControlEnabled,
+                                        isDemo: diagnostics.demoMode,
+                                        basis: basisSource?.heartRateBasis,
+                                        limits: client.limits))
     }
 
     /// The other place a workout begins. `beginWorkout()` only runs on the
@@ -1235,6 +1253,13 @@ final class ProgramRunner: ObservableObject {
     /// client now, whose lifetime is the connection, and there is nothing here
     /// left for a teardown to cancel.
     func stop() {
+        // Only a program that was still live has an end to report: this method is
+        // reached from an ordinary navigation home too, and `finish()` has
+        // already written the line for a workout that ended on its own.
+        switch runnerState {
+        case .armed, .waitingForBelt, .running, .suspended: logWorkoutEnded(.tornDown)
+        case .idle, .finished: break
+        }
         timer?.invalidate()
         timer = nil
         program = nil
@@ -1312,7 +1337,7 @@ final class ProgramRunner: ObservableObject {
         case .nothingToDo:
             break
         case .finish:
-            return finish()
+            return finish(reason: .stopOutstanding)
         case .abandon:
             return stop()
         }
@@ -1396,6 +1421,16 @@ final class ProgramRunner: ObservableObject {
                                 heartRateBpm: heartRate,
                                 heartRateBelowThresholdBpm:
                                     Self.heartRateBelowThresholdBpm(segment.goal)))
+            // The feed's own edges and a recovery goal's crossings, logged from
+            // the one place that has both the reading and the measured delta.
+            // Both are transition-only: the level is in every evaluation line
+            // already, and a line per second would bury the decisions.
+            diagnostics.noteHeartRateFeed(bpm: heartRate, deltaSeconds: deltaSeconds)
+            diagnostics.noteRecovery(
+                thresholdBpm: Self.heartRateBelowThresholdBpm(segment.goal),
+                heartRateBpm: heartRate,
+                holdSeconds: segmentProgress.heartRateBelowSeconds,
+                requiredSeconds: Double(WorkoutSegment.recoveryHeartRateHoldSeconds))
             // Before the completion check on purpose: a stop ceiling that fires on
             // the tick a segment ends has to stop the belt, not hand over to the
             // next segment and write its target.
@@ -1407,11 +1442,18 @@ final class ProgramRunner: ObservableObject {
                                                                          progress: segmentProgress))
                 return
             }
+            diagnostics.record(.segmentEnded,
+                               [.int("index", index),
+                                .text("reason", "goalReached"),
+                                .seconds("elapsedSeconds", segmentProgress.elapsedSeconds),
+                                .km("distanceKm", segmentProgress.distanceKm),
+                                .seconds("heartRateBelowSeconds",
+                                         segmentProgress.heartRateBelowSeconds)])
             let nextIndex = index + 1
             if program.segments.indices.contains(nextIndex) {
                 begin(program.segments[nextIndex], at: nextIndex)
             } else {
-                finishAndStop(client)
+                finishAndStop(client, reason: .programComplete)
             }
 
         case .suspended(let index, let remaining):
@@ -1462,6 +1504,23 @@ final class ProgramRunner: ObservableObject {
         client?.segmentBegan()
         startGoverning(segment, entry: entry.change,
                        isEntryClampedByCeiling: entry.isClampedByCeiling)
+        // After `startGoverning`, so the line carries the arbitration and the
+        // status the gate actually produced rather than what this method hoped
+        // for. The arbitration is recomputed from the same pure function
+        // `publishGovernedBand` uses; it decides nothing here.
+        diagnostics.record(.segmentStarted, DiagnosticLog.segmentFields(
+            index: index, segment: segment, entry: entry.change.to,
+            isEntryClampedByCeiling: entry.isClampedByCeiling,
+            arbitration: arbitrationForLog(), status: governorStatus))
+    }
+
+    /// The arbitration a `segmentStarted` line reports, or nil when nothing is
+    /// steering this segment. Log-only, and it computes nothing the loop does not
+    /// already compute for itself in `publishGovernedBand`.
+    private func arbitrationForLog() -> HeartRateGovernor.BandArbitration? {
+        guard let run = governorSession?.run, let basis = governorSession?.basis,
+              !run.isSurrendered else { return nil }
+        return HeartRateGovernor.arbitration(for: run.target, basis: basis)
     }
 
     /// The segment's own command, reported as the change it made. Deliberately
@@ -1481,7 +1540,7 @@ final class ProgramRunner: ObservableObject {
             notAbove: Self.ceilingReference(appCommand: Self.appCommand(of: client),
                                             belt: client.beltFacts),
             isCeilingStanding: Self.isForceDownCeilingStanding(governorSession))
-        return (write(entry, to: client),
+        return (write(entry, to: client, origin: .segmentEntry),
                 !HeartRateGovernor.isSameCommand(entry, programmed))
     }
 
@@ -1501,9 +1560,31 @@ final class ProgramRunner: ObservableObject {
     /// The timer therefore goes: `.finished` is terminal, the client is doing the
     /// asking, and a 1 Hz timer with nothing to do is a timer a later edit finds
     /// a use for.
-    private func finishAndStop(_ client: any TreadmillControlling) {
+    private func finishAndStop(_ client: any TreadmillControlling,
+                               reason: DiagnosticReason) {
+        // Logged before the ask, so a stop the belt never answers still has the
+        // line that says who asked for it and at what speed.
+        diagnostics.record(.stop, [.text("phase", "requested"),
+                                   .text("by", reason.rawValue),
+                                   .speed("beltSpeedKmh", client.state.speedKmh),
+                                   .speed("commandedSpeedKmh", client.commandedSpeedKmh)])
         client.requestStop()
-        finish()
+        finish(reason: reason)
+    }
+
+    /// Why a workout ended, for the log and for nothing else. A named type
+    /// rather than a string at each call site: these are the labels an analyst
+    /// sorts a session by, and a typo in one of them is a run they cannot find.
+    enum DiagnosticReason: String, Sendable {
+        /// The 97% ceiling.
+        case heartRateCeiling
+        /// The last segment's goal was reached.
+        case programComplete
+        /// A stop of the app's own was outstanding, so the program ended.
+        case stopOutstanding
+        /// `stop()`: an ordinary teardown — the × button, a navigation home, the
+        /// belt having stopped, the start timing out.
+        case tornDown
     }
 
     /// The program, over, without asking the belt for anything.
@@ -1513,11 +1594,27 @@ final class ProgramRunner: ObservableObject {
     /// own, on its own 200 ms poll, and a program ending is not a reason to
     /// re-issue it — nor is it this class's stop to touch at all (spec section 4,
     /// "A stop the app asked for outlives the program that asked").
-    private func finish() {
+    private func finish(reason: DiagnosticReason) {
+        logWorkoutEnded(reason)
         runnerState = .finished
         clearGoverning()
         timer?.invalidate()
         timer = nil
+    }
+
+    /// The workout's last line, and the flush that gets it onto disk. Only when
+    /// a file is actually open: a teardown of something that was never logged —
+    /// `stop()` reached from an ordinary navigation with no program running —
+    /// says nothing.
+    private func logWorkoutEnded(_ reason: DiagnosticReason) {
+        guard diagnostics.isWorkoutOpen else { return }
+        diagnostics.endWorkout([
+            .text("reason", reason.rawValue),
+            .text("state", DiagnosticLog.name(of: runnerState)),
+            .text("governorStopReason",
+                  governorStopReason == .heartRateCeiling ? "heartRateCeiling" : nil),
+            .text("governorStatus", governorStatus.map { DiagnosticLog.name(of: $0) }),
+        ])
     }
 
     // MARK: - Heart-rate control, live
@@ -1566,7 +1663,13 @@ final class ProgramRunner: ObservableObject {
         // entry command.
         if Self.isStopCeilingReached(session) {
             governorStopReason = .heartRateCeiling
-            finishAndStop(client)
+            diagnostics.record(.stop, [
+                .text("phase", "ceilingReached"),
+                .int("heartRateBpm", heartRate),
+                .seconds("secondsAboveStopCeiling",
+                         session.tallies.secondsAboveStopCeiling),
+                .seconds("stopHoldSeconds", HeartRateGovernor.stopHoldSeconds)])
+            finishAndStop(client, reason: .heartRateCeiling)
             governorStatus = .stopping
             return false
         }
@@ -1606,30 +1709,51 @@ final class ProgramRunner: ObservableObject {
         // so a ceiling step-down in the same evaluation used to consume the
         // evidence for good — and the loop then re-accelerated past the speed the
         // user had set by hand (finding 65).
+        let wasHandedBack = run.isHandedBack
         run.isHandedBack = run.isHandedBack || HeartRateGovernor.isManualIntervention(input)
+        if run.isHandedBack, !wasHandedBack {
+            diagnostics.record(.manualIntervention, [
+                .text("phase", "handBackLatched"),
+                .text("noticedAt", "evaluation"),
+                .flag("isSpeedSetByHand", input.belt.isSpeedSetByHand),
+                .flag("isInclineSetByHand", input.belt.isInclineSetByHand),
+                .speed("appCommandSpeedKmh", input.appCommand?.speedKmh),
+                .speed("measuredSpeedKmh", input.belt.measured?.speedKmh),
+                .int("appCommandIncline", input.appCommand?.incline),
+                .int("measuredIncline", input.belt.measured?.incline)])
+        }
         let decision = HeartRateGovernor.decide(input)
         // See `isRefusedWhileStale`: while the link is stale no target write of the
         // governor's may reach the belt, because every number it was computed from
         // is a remembered one. Only the emergency stop passes, and this is a
         // different answer again from phase 1's staleness rule.
         let isLinkStale = client.staleData
-        governorStatus = Self.status(for: decision, isHandedBack: run.isHandedBack,
-                                     isLinkStale: isLinkStale)
-        switch Self.action(for: decision, isHandedBack: run.isHandedBack,
-                           isLinkStale: isLinkStale) {
+        let status = Self.status(for: decision, isHandedBack: run.isHandedBack,
+                                isLinkStale: isLinkStale)
+        governorStatus = status
+        let action = Self.action(for: decision, isHandedBack: run.isHandedBack,
+                                isLinkStale: isLinkStale)
+        // Every evaluation, not only the ones that changed something: a segment
+        // that held for four minutes is a claim about four minutes of readings,
+        // and "nothing happened" is only checkable against the input that
+        // produced it.
+        diagnostics.record(.governorEvaluated, DiagnosticLog.governorFields(
+            input: input, decision: decision, action: action, status: status,
+            isHandedBack: run.isHandedBack, isLinkStale: isLinkStale))
+        switch action {
         case .none:
             break
         case .handBack:
             run.isHandedBack = true
         case .write(let next):
-            run.commandApplied(write(next, to: client))
+            run.commandApplied(write(next, to: client, origin: Self.origin(of: decision)))
         case .stop:
             // Reached only if the ladder ever grows a second reason to stop: the
             // stop ceiling itself has already been asked at workout scope above,
             // on the same tally this rung reads. Kept because the ladder is the
             // law and this is the runner's one way to act on it.
             governorStopReason = .heartRateCeiling
-            finishAndStop(client)
+            finishAndStop(client, reason: .heartRateCeiling)
             governorStatus = .stopping
             return false
         }
@@ -1748,6 +1872,15 @@ final class ProgramRunner: ObservableObject {
                 // still drawn behind the chart would claim the loop is holding it.
                 governorStatus = .handedBack
                 publishGovernedBand()
+                diagnostics.record(.manualIntervention, [
+                    .text("phase", "handBackLatched"),
+                    .text("noticedAt", "resume"),
+                    .flag("isSpeedSetByHand", client.beltFacts.isSpeedSetByHand),
+                    .flag("isInclineSetByHand", client.beltFacts.isInclineSetByHand),
+                    .speed("appCommandSpeedKmh", client.commandedSpeedKmh),
+                    .speed("measuredSpeedKmh", client.state.speedKmh),
+                    .int("appCommandIncline", client.commandedIncline),
+                    .int("measuredIncline", client.state.inclinePercent)])
             }
         }
         guard let command = Self.resumeCommand(for: segment, run: governorSession?.run)
@@ -1768,7 +1901,7 @@ final class ProgramRunner: ObservableObject {
         let bounded = Self.boundedByCeiling(
             command, notAbove: Self.appCommand(of: client),
             isCeilingStanding: Self.isForceDownCeilingStanding(governorSession))
-        let change = write(bounded, to: client)
+        let change = write(bounded, to: client, origin: .resume)
         guard var session = governorSession, var run = session.run else { return }
         run.commandApplied(change)
         session.run = run
@@ -1791,10 +1924,36 @@ final class ProgramRunner: ObservableObject {
     /// earned; a write that restates the standing command now correctly has no
     /// direction at all.
     private func write(_ command: HeartRateGovernor.Command,
-                       to client: any TreadmillControlling) -> HeartRateGovernor.Change {
+                       to client: any TreadmillControlling,
+                       origin: DiagnosticWriteOrigin) -> HeartRateGovernor.Change {
         let previous = Self.appCommand(of: client)
         client.setTarget(speedKmh: command.speedKmh, incline: command.incline)
-        return HeartRateGovernor.Change(from: previous, to: Self.appCommand(of: client))
+        let change = HeartRateGovernor.Change(from: previous, to: Self.appCommand(of: client))
+        // Requested against accepted, at the one place that holds both: the
+        // client clamps to its limits, bounds a stale write by the last measured
+        // value and refuses anything above what is already happening while a
+        // stop stands, and a rule reporting itself as acting while its value was
+        // refused is what this line exists to catch. The client logs the writes
+        // this method does not make — a person's ± tiles, a start, the stop aid.
+        diagnostics.record(.clientWrite,
+                           DiagnosticLog.writeFields(origin: origin, requested: command,
+                                                     clamped: change.to, previous: previous))
+        return change
+    }
+
+    /// Which write a decision is, for the log. A brake and a step of the band law
+    /// reach the belt as the same call, and telling them apart afterwards is the
+    /// first thing anyone reading a run wants to do.
+    nonisolated static func origin(of decision: HeartRateGovernor.Decision)
+        -> DiagnosticWriteOrigin {
+        switch decision {
+        case .adjust(_, .ceilingForceDown): return .brake
+        case .fallback: return .fallback
+        // The remaining cases write nothing (`action(for:…)` turns them into
+        // `.none`, `.handBack` or `.stop`), so only `.adjust` is really reachable
+        // here; naming it the band law is the honest answer for the one that is.
+        case .adjust, .hold, .frozen, .emergencyStop, .manualControl: return .governor
+        }
     }
 
     /// The client's current target — **an observation**, folded into the

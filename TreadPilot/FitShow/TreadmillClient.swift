@@ -463,6 +463,14 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     /// (finding 94).
     @Published private(set) var isStopOutstanding = false
 
+    /// The developer-toggled event log. **Observation only**: no branch in this
+    /// class reads it, and with the toggle off every call below costs one Bool
+    /// read — which is the requirement, because the 200 ms poll runs through
+    /// `tick()`. It logs the writes `ProgramRunner` does not make (a person's ±
+    /// tiles, a start, the stop aid) and the whole stop lifecycle, whose facts
+    /// live here because this object's lifetime is the connection.
+    private let diagnostics = DiagnosticLog.shared
+
     /// How old the data in hand may be while the belt runs before `staleData` is
     /// raised. Named, because `ProgramRunner.maxTickSeconds` is derived from it: the
     /// runner may not credit a tick with more running than one frame is evidence
@@ -844,6 +852,9 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     func startDemo() {
         guard Self.mayEnterDemo(phase: phase) else { return }
         demoMode = true
+        // `TreadmillControlling` does not carry this, so the runner cannot state
+        // it on the workout's own line. The client says it once, here.
+        diagnostics.noteDemoMode(true)
         lastError = nil
         state = TreadmillState()
         limits = TreadmillLimits()
@@ -887,6 +898,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         demoTimer?.invalidate()
         demoTimer = nil
         demoMode = false
+        diagnostics.noteDemoMode(false)
         state = TreadmillState()
         phase = .idle
     }
@@ -908,6 +920,14 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             state.inclinePercent = commandedIncline
             dial.observe(measuredSpeedUnits: HeartRateGovernor.speedUnits(state.speedKmh),
                          measuredIncline: state.inclinePercent, deltaSeconds: 1)
+            // The demo belt has no `tick()` — the poll only runs on a real link —
+            // so the dial's verdict is reported from here instead.
+            diagnostics.noteDial(isSpeedSetByHand: dial.speed.isSetByHand,
+                                 isInclineSetByHand: dial.incline.isSetByHand,
+                                 commandedSpeedKmh: commandedSpeedKmh,
+                                 measuredSpeedKmh: state.speedKmh,
+                                 commandedIncline: commandedIncline,
+                                 measuredIncline: state.inclinePercent)
             state.elapsedSeconds += 1
             state.distanceKm = ((state.distanceKm + state.speedKmh / 3600) * 1000).rounded() / 1000
             state.kcal = Int(Double(state.elapsedSeconds) * 0.11 * max(1, state.speedKmh / 6))
@@ -1176,6 +1196,16 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
                                               lastSpeedKmh: state.speedKmh)
             isStopOutstanding = true
             lastStopTickAt = Date()
+            // Both windows, written out: "the belt did not stop" is only readable
+            // against the wind-down the belt was actually given.
+            diagnostics.record(.stop, [
+                .text("phase", "outstanding"),
+                .speed("speedAtRequestKmh", state.speedKmh),
+                .text("status", DiagnosticLog.name(of: state.status)),
+                .seconds("failureWindowSeconds",
+                         Self.stopFailureSeconds(fromSpeedKmh: state.speedKmh)),
+                .seconds("giveUpWindowSeconds",
+                         Self.stopGiveUpSeconds(fromSpeedKmh: state.speedKmh))])
         }
         enqueue(FitShowCommands.stop)
     }
@@ -1230,10 +1260,38 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         case hand(HeartRateActuator)
         /// An explicit start: a user action carrying its own confirmation.
         case start
+
+        /// How the diagnostic log names this write — nil for the control loop,
+        /// whose write the runner logs with the rule that asked for it.
+        var diagnosticOrigin: DiagnosticWriteOrigin? {
+            switch self {
+            case .controlLoop: return nil
+            case .hand: return .user
+            case .start: return .start
+            }
+        }
     }
 
     private func write(speedKmh: Double, incline: Int, origin: WriteOrigin) {
+        let previous = HeartRateGovernor.Command(speedKmh: commandedSpeedKmh,
+                                                 incline: commandedIncline)
         record(command: speedKmh, incline: incline, origin: origin)
+        // The writes the runner does not make. A `.controlLoop` write is logged
+        // by `ProgramRunner.write(_:to:origin:)` instead, which knows *which*
+        // rule asked — a boundary's entry command, the band law, a brake, the
+        // fallback — and one line saying that is worth more than two saying
+        // "the control loop".
+        if let logged = origin.diagnosticOrigin {
+            diagnostics.record(.clientWrite, DiagnosticLog.writeFields(
+                origin: logged,
+                requested: HeartRateGovernor.Command(speedKmh: speedKmh, incline: incline),
+                clamped: HeartRateGovernor.Command(speedKmh: commandedSpeedKmh,
+                                                   incline: commandedIncline),
+                previous: previous)
+                + [.speed("beltSpeedKmh", state.speedKmh),
+                   .flag("isLinkStale", staleData),
+                   .flag("isStopOutstanding", isStopOutstanding)])
+        }
         if demoMode { return } // the demo tick follows the targets
         guard state.isRunning else {
             // We do not send on a standing/counting-down belt — we catch up on the
@@ -1341,6 +1399,17 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         let now = Date()
         staleData = state.isRunning
             && now.timeIntervalSince(lastFrameAt) > Self.freshnessHorizonSeconds
+        // Both of these are transition-only inside the log, so the cost here is a
+        // Bool read while the developer toggle is off — which is what keeps a
+        // 200 ms poll a 200 ms poll.
+        diagnostics.noteLinkStaleness(isStale: staleData,
+                                      secondsSinceFrame: now.timeIntervalSince(lastFrameAt))
+        diagnostics.noteDial(isSpeedSetByHand: dial.speed.isSetByHand,
+                             isInclineSetByHand: dial.incline.isSetByHand,
+                             commandedSpeedKmh: commandedSpeedKmh,
+                             measuredSpeedKmh: state.speedKmh,
+                             commandedIncline: commandedIncline,
+                             measuredIncline: state.inclinePercent)
         // Expired here, at the single place that knows the reading's age, so no
         // reader of `state.heartRate` has to learn a freshness rule of its own.
         let fresh = Self.freshHeartRate(state.heartRate,
@@ -1376,6 +1445,11 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             measuredSpeedKmh: frameAge <= Self.freshnessHorizonSeconds ? state.speedKmh : nil)
         switch step {
         case .obeyed:
+            diagnostics.record(.stop, [
+                .text("phase", "observedStopped"),
+                .text("status", DiagnosticLog.name(of: state.status)),
+                .seconds("secondsSinceRequest", next.secondsSinceRequest),
+                .int("attempts", next.attempts)])
             clearOutstandingStop()
             if stopNotObeyed { stopNotObeyed = false }
         case .abandoned:
@@ -1387,6 +1461,13 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             // needs to exist at all — the flag could never be cleared again, so a
             // false alarm silently refused every later program start for the rest
             // of the connection (finding 113).
+            diagnostics.record(.stop, [
+                .text("phase", "abandoned"),
+                .seconds("secondsSinceRequest", next.secondsSinceRequest),
+                .seconds("secondsNotSlowing", next.secondsNotSlowing),
+                .speed("lastSpeedKmh", next.lastSpeedKmh),
+                .flag("wasObservedSlowing", next.wasObservedSlowing),
+                .flag("raisedFailure", next.isFailure)])
             clearOutstandingStop()
             if next.isFailure, !stopNotObeyed { stopNotObeyed = true }
         case .wait, .insist:
@@ -1394,8 +1475,24 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             // Once raised the warning stays until the belt is observed stopped.
             // The evidence for it does not go away by itself, and a red banner
             // that flickers is one nobody trusts.
-            if next.isFailure, !stopNotObeyed { stopNotObeyed = true }
+            if next.isFailure, !stopNotObeyed {
+                diagnostics.record(.stop, [
+                    .text("phase", "failureRaised"),
+                    .seconds("secondsSinceRequest", next.secondsSinceRequest),
+                    .seconds("secondsNotSlowing", next.secondsNotSlowing),
+                    .speed("speedAtRequestKmh", next.speedAtRequestKmh),
+                    .speed("lastSpeedKmh", next.lastSpeedKmh)])
+                stopNotObeyed = true
+            }
             guard step == .insist else { return }
+            diagnostics.record(.stop, [
+                .text("phase", "insisted"),
+                .int("attempt", next.attempts),
+                .seconds("secondsSinceRequest", next.secondsSinceRequest),
+                .seconds("secondsNotSlowing", next.secondsNotSlowing),
+                .speed("lastSpeedKmh", next.lastSpeedKmh),
+                .flag("wasObservedSlowing", next.wasObservedSlowing),
+                .text("status", DiagnosticLog.name(of: state.status))])
             enqueue(FitShowCommands.stop)
             // The aid is handed an observation, never a wiped or remembered zero
             // and never fact 1: `next` has just been stored above, and its
@@ -1426,6 +1523,9 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             isObservedStopped: Self.isObservedStopped(
                 status: state.status, frameAge: now.timeIntervalSince(lastFrameAt)))
         else { return }
+        diagnostics.record(.stop, [
+            .text("phase", "failureRetired"),
+            .text("status", DiagnosticLog.name(of: state.status))])
         stopNotObeyed = false
     }
 
@@ -1457,6 +1557,15 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
                                      commandedIncline: commandedIncline,
                                      observedSpeedKmh: observedSpeedKmh,
                                      measuredIncline: state.inclinePercent, limits: limits)
+        // The observation the reduction was computed *from*, named: this write
+        // touches none of the three facts, so the file is the only place the
+        // number it reduced from is ever recorded.
+        diagnostics.record(.stop, [
+            .text("phase", "aid"),
+            .speed("observedSpeedKmh", observedSpeedKmh),
+            .speed("commandedSpeedKmh", commandedSpeedKmh),
+            .speed("aidSpeedKmh", aid.speedKmh),
+            .int("aidIncline", aid.incline)])
         enqueue(FitShowCommands.setTarget(speedKmh: aid.speedKmh,
                                           inclinePercent: aid.incline, limits: limits))
     }

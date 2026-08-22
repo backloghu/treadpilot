@@ -22,6 +22,11 @@ struct ProfileView: View {
     /// touch the stored acceptance — it only reopens the same view to read again,
     /// dismissing back to the profile rather than re-confirming anything.
     @State private var showDisclaimer = false
+    /// The developer-toggled event log (`DiagnosticLog`). Observed rather than
+    /// owned: it is the app's one instance, and this screen is the only place
+    /// that switches it on or hands a file to the share sheet.
+    @ObservedObject private var diagnostics = DiagnosticLog.shared
+    @State private var diagnosticLogs: [DiagnosticLog.StoredLog] = []
 
     var body: some View {
         List {
@@ -150,6 +155,51 @@ struct ProfileView: View {
             }
 
             Section {
+                Toggle(isOn: $diagnostics.isEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Diagnostic log")
+                            .foregroundStyle(.white)
+                        Text("Records the heart-rate loop's own decisions, every belt command and every stop of a program workout into a file on this iPhone.")
+                            .font(.caption2)
+                            .foregroundStyle(Brand.grey)
+                    }
+                }
+                .tint(Brand.accent)
+                .listRowBackground(Brand.bgElev1)
+                if diagnosticLogs.isEmpty {
+                    Text("No log yet. Switch this on, then start a program workout.")
+                        .font(.footnote)
+                        .foregroundStyle(Brand.grey)
+                        .listRowBackground(Brand.bgElev1)
+                } else {
+                    ForEach(diagnosticLogs) { log in
+                        ShareLink(item: log.url) {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(log.name)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.white)
+                                    Text(Self.detail(of: log))
+                                        .font(.caption2)
+                                        .foregroundStyle(Brand.grey)
+                                }
+                            } icon: {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+                            .foregroundStyle(Brand.accent)
+                        }
+                        .listRowBackground(Brand.bgElev1)
+                    }
+                }
+            } header: {
+                BrandEyebrow(String(localized: "Developer"))
+            } footer: {
+                Text("Off by default. Nothing leaves this iPhone: the app writes one JSON line per event — governor decisions with their inputs, belt commands, stops, feed gaps — and a file only goes anywhere if you share it. The ten most recent workouts are kept.")
+                    .font(.footnote)
+                    .foregroundStyle(Brand.grey)
+            }
+
+            Section {
                 Button {
                     showDisclaimer = true
                 } label: {
@@ -178,6 +228,12 @@ struct ProfileView: View {
         .toolbarBackground(Brand.bgDeep, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .task { await profile.refreshFromHealthKit() }
+        // Flushed before it is listed, so what the share sheet offers is what has
+        // actually happened — the log buffers and writes off the hot path.
+        .task { await refreshDiagnosticLogs() }
+        .onChange(of: diagnostics.isEnabled) { _, _ in
+            Task { await refreshDiagnosticLogs() }
+        }
         // Gates the capability itself (finding 120), not a start path: accepting
         // this only proceeds to actually switching the toggle on, the same
         // shape `HomeView`'s own one-time gates use elsewhere in this feature.
@@ -217,6 +273,19 @@ struct ProfileView: View {
                     showHeartRateControlConfirmation = true
                 }
             })
+    }
+
+    private func refreshDiagnosticLogs() async {
+        await diagnostics.flush()
+        diagnosticLogs = diagnostics.recentLogs()
+    }
+
+    /// A log file's size and time, from the system's own formatters — there is
+    /// nothing here to translate, so it does not go through the catalog.
+    private static func detail(of log: DiagnosticLog.StoredLog) -> String {
+        let size = ByteCountFormatter.string(fromByteCount: Int64(log.sizeBytes),
+                                             countStyle: .file)
+        return "\(size) · \(log.modifiedAt.formatted(date: .abbreviated, time: .shortened))"
     }
 
     /// - Parameter healthValueIsEffective: False when resolution rejected the
