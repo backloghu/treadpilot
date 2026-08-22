@@ -33,6 +33,8 @@ struct SummaryView: View {
 
                     HealthSyncSection(session: session)
 
+                    WorkoutExportSection(session: session)
+
                     Button {
                         dismiss()
                     } label: {

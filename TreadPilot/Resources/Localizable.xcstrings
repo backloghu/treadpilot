@@ -526,6 +526,23 @@
         }
       }
     },
+    "Couldn't create the export file.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't create the export file."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nem sikerült létrehozni az exportfájlt."
+          }
+        }
+      }
+    },
     "Couldn't start the Watch app: %@": {
       "extractionState": "manual",
       "localizations": {
@@ -764,6 +781,23 @@
         }
       }
     },
+    "EXPORT TCX FILE": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EXPORT TCX FILE"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TCX-FÁJL EXPORTÁLÁSA"
+          }
+        }
+      }
+    },
     "Elevation gain": {
       "extractionState": "manual",
       "localizations": {
@@ -777,6 +811,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Szint fel"
+          }
+        }
+      }
+    },
+    "Export": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export"
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export"
           }
         }
       }
@@ -828,6 +879,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "FitShow-konzol (2019-es modellek)"
+          }
+        }
+      }
+    },
+    "For Strava: upload the file manually at strava.com/upload.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For Strava: upload the file manually at strava.com/upload."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stravához: töltsd fel a fájlt kézzel a strava.com/upload oldalon."
           }
         }
       }

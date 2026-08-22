@@ -120,6 +120,8 @@ struct SessionDetailView: View {
                 // was turned off), it can be completed from here at any time.
                 HealthSyncSection(session: session, showsAutoSaveToggle: false)
 
+                WorkoutExportSection(session: session)
+
                 // For a long workout the sample series is thinned out so the
                 // chart is not built from thousands of points.
                 let samples = downsampled(session.sortedSamples, to: 600)
