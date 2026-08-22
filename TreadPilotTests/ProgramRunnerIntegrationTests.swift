@@ -465,6 +465,156 @@ final class ProgramRunnerIntegrationTests: XCTestCase {
         }
     }
 
+    // MARK: - Finding 205: a pause of the app's own suspends on its own tick
+
+    func testAnAppPauseSuspendsTheProgramWhileTheBeltIsStillMoving() throws {
+        // The T40 honours a pause through many seconds of `running` frames at a
+        // falling speed before the standstill (finding 181), and the runner used
+        // to learn about the pause only from that standstill — so the whole
+        // wind-down stayed inside the segment, where the next governed
+        // evaluation wrote a target, and a console that honours target changes
+        // took the write as the pause being called off. The suspension is the
+        // ask's own, so it starts on the ask's own tick, belt still at speed.
+        withRunner(heartRateControl: true) { runner, recorder in
+            let belt = StubTreadmill(speedKmh: 8.0)
+            // Above the band: a reduction is due on the next evaluation — the
+            // exact write that used to cancel the pause on the hardware.
+            let heart = StubGovernorHeartRate(bpm: 165)
+            runner.bindHeartRateControl(source: heart, basis: recorder)
+            runner.start(WorkoutProgram(name: "Zone 3",
+                                        segments: [heartRateSegment(speedTarget(start: 8.0))]),
+                         on: belt)
+            drive(runner, belt, seconds: 5)
+            let writesBeforeThePause = belt.targetWrites.count
+
+            belt.isPauseOutstanding = true
+            drive(runner, belt, seconds: 1)
+            guard case .suspended = runner.runnerState else {
+                return XCTFail("expected a suspended program, got \(runner.runnerState)")
+            }
+
+            // The wind-down, at the belt's own rate, `running` the whole way
+            // down. Evaluations come due on the 10 s grid inside this window;
+            // none may write, and none may read the falling belt as a resume.
+            for speedKmh in [6.0, 4.0, 2.0, 1.0] {
+                belt.consoleSets(speedKmh: speedKmh)
+                drive(runner, belt, seconds: 3)
+            }
+            XCTAssertEqual(belt.targetWrites.count, writesBeforeThePause,
+                           "a pause's wind-down is nobody's to steer")
+            guard case .suspended = runner.runnerState else {
+                return XCTFail("a moving belt is the pause still happening, " +
+                               "got \(runner.runnerState)")
+            }
+        }
+    }
+
+    func testTheProgramResumesOnlyOnceThePauseIsResolvedAndTheBeltMoves() throws {
+        // The honoured half: the belt reaches the standstill, the client
+        // resolves the ask, and the program still waits — a standing belt
+        // resumes nothing (#181). The user restarting at the console is what
+        // resumes it, and the resume re-writes the segment's own target.
+        withRunner(heartRateControl: false) { runner, _ in
+            let belt = StubTreadmill(speedKmh: 6.0)
+            runner.start(WorkoutProgram(name: "Jog", segments: [fixedSegment(6.0)]),
+                         on: belt)
+            drive(runner, belt, seconds: 3)
+            let writesBeforeThePause = belt.targetWrites.count
+
+            belt.isPauseOutstanding = true
+            drive(runner, belt, seconds: 1)
+            guard case .suspended = runner.runnerState else {
+                return XCTFail("expected a suspended program, got \(runner.runnerState)")
+            }
+
+            // The standstill, still `running` at 0 (finding 181), and the ask
+            // resolved as honoured on the client.
+            belt.consoleSets(speedKmh: 0)
+            belt.isPauseOutstanding = false
+            drive(runner, belt, seconds: 5)
+            guard case .suspended = runner.runnerState else {
+                return XCTFail("a standing belt resumes nothing, got \(runner.runnerState)")
+            }
+            XCTAssertEqual(belt.targetWrites.count, writesBeforeThePause)
+
+            // The console restart: fresh running frames at speed.
+            belt.consoleSets(speedKmh: 6.0)
+            drive(runner, belt, seconds: 2)
+            guard case .running = runner.runnerState else {
+                return XCTFail("expected the program to resume, got \(runner.runnerState)")
+            }
+            XCTAssertEqual(belt.targetWrites.count, writesBeforeThePause + 1,
+                           "the resume re-writes the segment's own target")
+        }
+    }
+
+    func testAGivenUpPauseHandsTheProgramBackToTheMovingBelt() throws {
+        // The dropped-frame half: the belt never slows, the client gives the
+        // ask up after the wind-down it was owed, and the program picks the
+        // segment back up — visibly, with the segment's own target re-written —
+        // instead of sitting suspended forever on a belt that is plainly
+        // running.
+        withRunner(heartRateControl: false) { runner, _ in
+            let belt = StubTreadmill(speedKmh: 6.0)
+            runner.start(WorkoutProgram(name: "Jog", segments: [fixedSegment(6.0)]),
+                         on: belt)
+            drive(runner, belt, seconds: 3)
+            let writesBeforeThePause = belt.targetWrites.count
+
+            belt.isPauseOutstanding = true
+            drive(runner, belt, seconds: 10)
+            guard case .suspended = runner.runnerState else {
+                return XCTFail("expected a suspended program, got \(runner.runnerState)")
+            }
+            XCTAssertEqual(belt.targetWrites.count, writesBeforeThePause)
+
+            belt.isPauseOutstanding = false
+            drive(runner, belt, seconds: 2)
+            guard case .running = runner.runnerState else {
+                return XCTFail("expected the program to resume, got \(runner.runnerState)")
+            }
+            XCTAssertEqual(belt.targetWrites.count, writesBeforeThePause + 1)
+        }
+    }
+
+    func testAStaleMovingFrameDoesNotResumeASuspendedProgram() throws {
+        // The one route into `.suspended` where the belt was last seen *moving*
+        // is the app-pause suspension — so a console that goes silent when
+        // paused leaves a remembered moving frame behind, and a resume written
+        // from a remembered frame would restart a belt the user has just
+        // paused. Fresh evidence only.
+        withRunner(heartRateControl: false) { runner, _ in
+            let belt = StubTreadmill(speedKmh: 6.0)
+            runner.start(WorkoutProgram(name: "Jog", segments: [fixedSegment(6.0)]),
+                         on: belt)
+            drive(runner, belt, seconds: 3)
+            let writesBeforeThePause = belt.targetWrites.count
+
+            belt.isPauseOutstanding = true
+            drive(runner, belt, seconds: 1)
+            guard case .suspended = runner.runnerState else {
+                return XCTFail("expected a suspended program, got \(runner.runnerState)")
+            }
+
+            // The console goes quiet; the client's give-up clears the ask while
+            // the last remembered frame still says 6.0 km/h.
+            belt.staleData = true
+            belt.isPauseOutstanding = false
+            drive(runner, belt, seconds: 5)
+            guard case .suspended = runner.runnerState else {
+                return XCTFail("a remembered frame is not a resume, got \(runner.runnerState)")
+            }
+            XCTAssertEqual(belt.targetWrites.count, writesBeforeThePause)
+
+            // Frames return, the belt is genuinely moving: now it is a resume.
+            belt.staleData = false
+            drive(runner, belt, seconds: 2)
+            guard case .running = runner.runnerState else {
+                return XCTFail("expected the program to resume, got \(runner.runnerState)")
+            }
+        }
+    }
+
     // MARK: - Finding 114 / 117: a segment boundary retires the console-dial verdict
 
     func testASegmentBoundaryRetiresTheHandBackVerdictLatchedInThePreviousSegment() throws {
@@ -638,6 +788,10 @@ private final class StubTreadmill: TreadmillControlling {
     private(set) var targetIncline: Int
     private(set) var isStopOutstanding = false
     private(set) var stopNotObeyed = false
+    /// The world's hand, not the stub's inference: production sets this fact in
+    /// `requestPause()` and clears it on the belt being observed standing or the
+    /// give-up window closing — a test scripts those moments directly.
+    var isPauseOutstanding = false
 
     /// Every `setTarget` the runner made, as it asked for it — before the clamps.
     /// A write the client would clamp to nothing is still a write the runner
@@ -719,8 +873,14 @@ private final class StubTreadmill: TreadmillControlling {
         state.speedKmh = consoleSetpoint.speedKmh
         state.inclinePercent = consoleSetpoint.incline
         secondsSinceCommand += delta
-        dial.observe(measuredSpeedUnits: HeartRateGovernor.speedUnits(state.speedKmh),
-                     measuredIncline: state.inclinePercent, deltaSeconds: delta)
+        // `FitShowTreadmillClient.observeDial`'s own two guards, mirrored: a
+        // standing belt's zero is not a value anybody dialled in, and a
+        // wind-down the app itself asked for (an outstanding pause) is the belt
+        // obeying, not a person (finding 205).
+        if state.speedKmh > 0, !isPauseOutstanding {
+            dial.observe(measuredSpeedUnits: HeartRateGovernor.speedUnits(state.speedKmh),
+                         measuredIncline: state.inclinePercent, deltaSeconds: delta)
+        }
         targetSpeedKmh = HeartRateGovernor.speedKmh(units: FitShowTreadmillClient.reconciled(
             commandUnits: HeartRateGovernor.speedUnits(commandedSpeedKmh),
             measuredUnits: HeartRateGovernor.speedUnits(state.speedKmh),

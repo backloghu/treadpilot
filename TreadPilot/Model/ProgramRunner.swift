@@ -1377,8 +1377,24 @@ final class ProgramRunner: ObservableObject {
                     stop()
                 } else {
                     // Pause / stop in progress: suspend.
+                    logSuspension(cause: "beltNotRunning", segmentIndex: index,
+                                  on: client)
                     runnerState = .suspended(segmentIndex: index, remaining: remaining)
                 }
+                return
+            }
+            // A pause of the app's own, before the zero-speed inference below
+            // and before anything that can write: the T40 honours a pause
+            // through many seconds of `running` frames at a falling speed
+            // (finding 181), and waiting for the standstill left that whole
+            // wind-down inside the segment — where the next governed evaluation
+            // wrote a target, and a console that honours target changes took
+            // the write as the pause being called off (finding 205). The
+            // suspension is the ask's own, so it starts on the ask's own tick.
+            if client.isPauseOutstanding {
+                resetTickCounters()
+                logSuspension(cause: "appPause", segmentIndex: index, on: client)
+                runnerState = .suspended(segmentIndex: index, remaining: remaining)
                 return
             }
             // A "running" status with 0 speed means it is actually paused (#181):
@@ -1390,6 +1406,8 @@ final class ProgramRunner: ObservableObject {
                 zeroSpeedSeconds = Self.stationarySeconds(zeroSpeedSeconds, tick: deltaSeconds)
                 if zeroSpeedSeconds >= Self.zeroSpeedSuspendSeconds {
                     resetTickCounters()
+                    logSuspension(cause: "beltStanding", segmentIndex: index,
+                                  on: client)
                     runnerState = .suspended(segmentIndex: index, remaining: remaining)
                 }
                 return
@@ -1457,11 +1475,27 @@ final class ProgramRunner: ObservableObject {
             }
 
         case .suspended(let index, let remaining):
-            if client.state.isRunning && client.state.speedKmh > 0 {
-                // We only resume on an actually moving belt (#181). A staleness
-                // check here would only delay this: every route into `.suspended`
-                // has seen the belt not running or standing still, and a stale
-                // frame is the remembered copy of exactly that frame.
+            if client.state.isRunning && client.state.speedKmh > 0
+                && !client.isPauseOutstanding && !client.staleData {
+                // We only resume on an actually moving belt (#181) — and never
+                // on the wind-down of a pause the app itself asked for: until
+                // that ask is resolved (honoured by a standstill, or given up
+                // on), a moving belt is the pause still happening, not the user
+                // resuming at the console (finding 205). The staleness guard
+                // exists for the same route: the app-pause suspension is the one
+                // way into `.suspended` where the belt was last seen *moving*,
+                // so a console that goes silent when paused would leave a
+                // remembered moving frame here — and a resume written from a
+                // remembered frame restarts a belt the user has just paused.
+                // The other routes saw the belt not running or standing still,
+                // for which a stale frame is the remembered copy of exactly
+                // that frame, so the guard costs them nothing: a genuine
+                // console resume produces fresh running frames within one poll.
+                diagnostics.record(.programSuspension, [
+                    .text("phase", "resumed"),
+                    .text("cause", "beltMoving"),
+                    .int("segmentIndex", index),
+                    .speed("beltSpeedKmh", client.state.speedKmh)])
                 runnerState = .running(segmentIndex: index, remaining: remaining)
                 if let segment = currentSegment { reapplyOnResume(segment, on: client) }
             } else if Self.isBeltStopped(client.state.status) {
@@ -1606,6 +1640,20 @@ final class ProgramRunner: ObservableObject {
     /// a file is actually open: a teardown of something that was never logged —
     /// `stop()` reached from an ordinary navigation with no program running —
     /// says nothing.
+    /// One suspension, said once with its cause: an app pause, a belt reported
+    /// not-running, or a standstill under a `running` status. The next hardware
+    /// log has to distinguish "the program stepped aside for the pause" from
+    /// "the program lost the belt", because the first is finding 205 working
+    /// and the second is a link or console problem.
+    private func logSuspension(cause: String, segmentIndex: Int,
+                               on client: any TreadmillControlling) {
+        diagnostics.record(.programSuspension, [
+            .text("phase", "suspended"),
+            .text("cause", cause),
+            .int("segmentIndex", segmentIndex),
+            .speed("beltSpeedKmh", client.state.speedKmh)])
+    }
+
     private func logWorkoutEnded(_ reason: DiagnosticReason) {
         guard diagnostics.isWorkoutOpen else { return }
         diagnostics.endWorkout([
@@ -2020,6 +2068,11 @@ protocol TreadmillControlling: AnyObject {
     /// …and the durable half of the same fact, which survives the insistence
     /// giving up. See `ProgramRunner.isRefusedByOutstandingStop`.
     var stopNotObeyed: Bool { get }
+    /// A pause of the app's own is outstanding: the ask has gone out and the
+    /// belt has not yet been observed standing. The runner suspends on it at
+    /// once and holds its automatic resume — a moving belt is then the pause's
+    /// own wind-down, not the user resuming at the console (finding 205).
+    var isPauseOutstanding: Bool { get }
 
     func setTarget(speedKmh: Double, incline: Int)
     func startBelt(speedKmh: Double, incline: Int)

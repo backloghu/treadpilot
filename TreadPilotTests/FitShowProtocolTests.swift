@@ -1759,6 +1759,103 @@ final class FitShowProtocolTests: XCTestCase {
         }
     }
 
+    // MARK: - The pause this client remembers asking for (findings 181, 205)
+
+    func testAPauseIsHonouredTheMomentTheBeltIsObservedStanding() {
+        let pause = OutstandingPause(speedAtRequestKmh: 6.2)
+        let (_, resolution) = FitShowTreadmillClient.resolvingPause(
+            pause, bySeconds: 0.2, isObservedStanding: true)
+        XCTAssertEqual(resolution, .honoured)
+    }
+
+    func testAPauseWaitsThroughTheWholeWindDownItOwesTheBelt() {
+        // 6.2 km/h at the belt's own 0.5 km/h/s is a 12.4 s wind-down, plus the
+        // floor: nothing inside that window may give the ask up, or an honest
+        // pause would hand the program back mid-wind-down — which is the exact
+        // write-onto-a-pausing-belt this fact exists to prevent.
+        var pause = OutstandingPause(speedAtRequestKmh: 6.2)
+        var elapsed = 0.0
+        while elapsed < 12.4 + FitShowTreadmillClient.pauseGiveUpFloorSeconds - 0.2 {
+            let (next, resolution) = FitShowTreadmillClient.resolvingPause(
+                pause, bySeconds: 0.2, isObservedStanding: false)
+            XCTAssertEqual(resolution, .waiting, "at \(elapsed)s")
+            pause = next
+            elapsed += 0.2
+        }
+    }
+
+    func testAPauseTheBeltNeverHonoursIsEventuallyGivenUpOn() {
+        // A lost pause frame must not suspend a program forever: the belt is
+        // plainly running, and the give-up is what lets the runner's automatic
+        // resume work again.
+        var pause = OutstandingPause(speedAtRequestKmh: 6.2)
+        var elapsed = 0.0
+        var resolution = PauseResolution.waiting
+        while resolution == .waiting, elapsed < 60 {
+            let (next, step) = FitShowTreadmillClient.resolvingPause(
+                pause, bySeconds: 0.2, isObservedStanding: false)
+            pause = next
+            resolution = step
+            elapsed += 0.2
+        }
+        XCTAssertEqual(resolution, .gaveUp)
+        XCTAssertLessThan(elapsed, 60, "the give-up has to actually arrive")
+    }
+
+    func testTheGiveUpWindowIsSizedByTheSpeedThePauseWasAskedAt() {
+        XCTAssertEqual(FitShowTreadmillClient.pauseGiveUpSeconds(fromSpeedKmh: 0),
+                       FitShowTreadmillClient.pauseGiveUpFloorSeconds)
+        XCTAssertEqual(FitShowTreadmillClient.pauseGiveUpSeconds(fromSpeedKmh: 6.0),
+                       6.0 / FitShowTreadmillClient.beltDecelerationKmhPerSecond
+                           + FitShowTreadmillClient.pauseGiveUpFloorSeconds)
+        XCTAssertGreaterThan(FitShowTreadmillClient.pauseGiveUpSeconds(fromSpeedKmh: 16),
+                             FitShowTreadmillClient.pauseGiveUpSeconds(fromSpeedKmh: 6))
+        // A nonsense speed gets the floor rather than a nonsense window.
+        XCTAssertEqual(FitShowTreadmillClient.pauseGiveUpSeconds(fromSpeedKmh: .nan),
+                       FitShowTreadmillClient.pauseGiveUpFloorSeconds)
+    }
+
+    func testAStandingBeltIsOnlyEvidenceFromAFrameThatActuallyArrived() {
+        // The T40 reports a paused belt as `running` at 0 (finding 181): the
+        // measured zero is the honoured outcome. A stale frame is a remembered
+        // zero, and a remembered zero is not an observation — the same rule the
+        // stop's own `isObservedStopped` lives by.
+        XCTAssertTrue(FitShowTreadmillClient.isObservedStanding(
+            status: .running, speedKmh: 0, frameAge: 1))
+        XCTAssertFalse(FitShowTreadmillClient.isObservedStanding(
+            status: .running, speedKmh: 0,
+            frameAge: FitShowTreadmillClient.freshnessHorizonSeconds + 1))
+        XCTAssertFalse(FitShowTreadmillClient.isObservedStanding(
+            status: .running, speedKmh: 3.0, frameAge: 1))
+        // A console that says `paused` outright has honoured the ask whatever
+        // speed the same frame still carries.
+        XCTAssertTrue(FitShowTreadmillClient.isObservedStanding(
+            status: .paused, speedKmh: 5.0, frameAge: 1))
+        XCTAssertTrue(FitShowTreadmillClient.isObservedStanding(
+            status: .idle, speedKmh: 0, frameAge: 1))
+        XCTAssertTrue(FitShowTreadmillClient.isObservedStanding(
+            status: .end, speedKmh: 0, frameAge: 1))
+    }
+
+    func testAWedgedPollCannotFastForwardThePauseGiveUp() {
+        let (next, resolution) = FitShowTreadmillClient.resolvingPause(
+            OutstandingPause(speedAtRequestKmh: 6.0), bySeconds: 600,
+            isObservedStanding: false)
+        XCTAssertEqual(resolution, .waiting)
+        XCTAssertEqual(next.secondsSinceRequest,
+                       FitShowTreadmillClient.freshnessHorizonSeconds)
+    }
+
+    func testANonsensePauseDeltaWaitsInsteadOfCounting() {
+        for delta in [0.0, -1.0, Double.nan, .infinity] {
+            let (next, resolution) = FitShowTreadmillClient.resolvingPause(
+                OutstandingPause(speedAtRequestKmh: 6.0), bySeconds: delta,
+                isObservedStanding: false)
+            XCTAssertEqual(resolution, .waiting, "\(delta)")
+            XCTAssertEqual(next, OutstandingPause(speedAtRequestKmh: 6.0))
+        }
+    }
+
     /// Finding 72's bound: unclamped, 60 + 11 × 16 = 236 — above
     /// `HeartRateTarget.bandRangeBpm`'s own "above any plausible maximum"
     /// ceiling — at the device's own top speed.

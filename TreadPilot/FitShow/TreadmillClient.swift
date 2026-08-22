@@ -139,6 +139,42 @@ enum StopInsistence: Equatable, Sendable {
     case abandoned
 }
 
+/// A pause the app has asked for and not yet seen the belt honour.
+///
+/// Deliberately not a second `OutstandingStop`: a pause carries no failure to
+/// surface and no re-issue of its own — the queue's three attempts are the only
+/// retry — because a belt that ignores a pause simply keeps running, which the
+/// user is standing on and can see. What it does carry is the *fact of the ask*,
+/// because two other rules have to read it (finding 205):
+/// - `ProgramRunner` suspends the program on the tick the ask is made, and must
+///   not auto-resume — "the belt is moving, so the user resumed at the console" —
+///   while the moving belt is this pause's own wind-down.
+/// - The console-dial inference must not read that wind-down as a person turning
+///   a dial: the belt is doing what the app itself asked.
+/// The T40 reports a pause as `running` at a *falling* speed for many seconds
+/// before the standstill (finding 181), which is exactly the window in which a
+/// governed segment's next evaluation used to write a target — and a console
+/// that honours target changes takes the write as the pause being called off.
+struct OutstandingPause: Equatable, Sendable {
+    /// Measured seconds since the pause command went out.
+    var secondsSinceRequest: Double = 0
+    /// The measured speed at the ask, which is what the give-up window is sized
+    /// against: the wind-down the belt owes is proportional to it.
+    var speedAtRequestKmh: Double = 0
+}
+
+/// What one poll decided about an outstanding pause.
+enum PauseResolution: Equatable, Sendable {
+    /// The belt was observed standing — or paused, idle, ended: the pause is done.
+    case honoured
+    /// Still inside the wind-down the belt was given.
+    case waiting
+    /// The belt never came down inside that window: the ask is dropped, so the
+    /// runner's automatic resume works again and a lost pause frame cannot hold
+    /// a program suspended forever.
+    case gaveUp
+}
+
 /// One axis of the console-dial inference — **fact 3** of the spec's "Three
 /// facts, kept apart", which this protocol does not carry and which therefore
 /// has to be inferred from fact 2, the measured value, and never from a target
@@ -507,6 +543,13 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     /// (finding 94).
     @Published private(set) var isStopOutstanding = false
 
+    /// A pause the app asked for is outstanding *now* — from the ask until the
+    /// belt is observed standing, or the give-up window closes over a belt that
+    /// never came down. `ProgramRunner` reads it to suspend at once and to hold
+    /// its automatic resume through the wind-down; see `OutstandingPause` for
+    /// why the fact has to exist at all (finding 205).
+    @Published private(set) var isPauseOutstanding = false
+
     /// The developer-toggled event log. **Observation only**: no branch in this
     /// class reads it, and with the toggle off every call below costs one Bool
     /// read — which is the requirement, because the 200 ms poll runs through
@@ -741,6 +784,55 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         return status == .idle || status == .end
     }
 
+    // MARK: - The pause this client remembers asking for
+
+    /// The floor under the pause give-up window: a belt already crawling when
+    /// the ask went out still gets a few seconds to be seen standing.
+    nonisolated static let pauseGiveUpFloorSeconds: Double = 5
+
+    /// How long a belt winding down from `speedKmh` is given to be observed
+    /// standing before the outstanding pause is dropped. The wind-down the belt
+    /// owes, plus the same floor a standing belt gets — the same shape as
+    /// `stopFailureSeconds(fromSpeedKmh:)`, and for the same reason: "the belt
+    /// did not pause" is only readable against the wind-down it was given.
+    nonisolated static func pauseGiveUpSeconds(fromSpeedKmh speedKmh: Double) -> Double {
+        guard speedKmh.isFinite, speedKmh > 0 else { return pauseGiveUpFloorSeconds }
+        return speedKmh / beltDecelerationKmhPerSecond + pauseGiveUpFloorSeconds
+    }
+
+    /// Has the belt been observed standing, for the pause's purposes? Wider than
+    /// `isObservedStopped(status:frameAge:)` on purpose: the T40 reports a
+    /// paused belt as `running` at 0 km/h (finding 181), so a measured zero is
+    /// evidence here, and `paused` is the honoured outcome rather than the
+    /// unconfirmed one it is for a stop. It still has to come from a frame that
+    /// actually arrived — a state wiped by a disconnect reads as zero, and a
+    /// remembered zero is not an observation.
+    nonisolated static func isObservedStanding(status: FitShow.Status, speedKmh: Double,
+                                               frameAge: TimeInterval) -> Bool {
+        guard frameAge <= freshnessHorizonSeconds else { return false }
+        if status == .idle || status == .end || status == .paused { return true }
+        return HeartRateGovernor.speedUnits(speedKmh) <= 0
+    }
+
+    /// One poll of an outstanding pause, as a pure function for the same reason
+    /// `insisting(_:bySeconds:isObservedStopped:measuredSpeedKmh:)` is one. A
+    /// tick is credited with at most one freshness horizon, so a wedged timer
+    /// cannot fast-forward the give-up.
+    nonisolated static func resolvingPause(_ pause: OutstandingPause,
+                                           bySeconds deltaSeconds: Double,
+                                           isObservedStanding: Bool)
+        -> (OutstandingPause, PauseResolution) {
+        guard !isObservedStanding else { return (pause, .honoured) }
+        guard deltaSeconds.isFinite, deltaSeconds > 0 else { return (pause, .waiting) }
+        var next = pause
+        next.secondsSinceRequest += min(deltaSeconds, freshnessHorizonSeconds)
+        guard next.secondsSinceRequest
+            < pauseGiveUpSeconds(fromSpeedKmh: next.speedAtRequestKmh) else {
+            return (next, .gaveUp)
+        }
+        return (next, .waiting)
+    }
+
     /// What a write may ask for while the treadmill link is stale.
     ///
     /// No frame has arrived for longer than the freshness horizon, so the app's
@@ -833,6 +925,8 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     private var dial = ConsoleDialDetector()
     private var outstandingStop: OutstandingStop?
     private var lastStopTickAt: Date = .distantPast
+    private var outstandingPause: OutstandingPause?
+    private var lastPauseTickAt: Date = .distantPast
     /// Diagnostics only: has this waiting spell already said why it is waiting?
     /// Keeps "the belt is obeying, so nothing was sent" one line per spell instead
     /// of five a second (finding 199).
@@ -1179,6 +1273,9 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     /// other place that used to declare a failure unconditionally, and the app asks
     /// for a stop at the end of every ordinary program (finding 113).
     private func abandonStopKeepingFailure() {
+        // A pause has no failure half to keep: giving up on the device ends the
+        // suspend-and-hold it was carrying, and nothing else.
+        clearOutstandingPause()
         guard let stop = outstandingStop else { return }
         clearOutstandingStop()
         if Self.abandonRaisesFailure(stop) {
@@ -1271,6 +1368,9 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         // ends a *program* may do this — spec section 4, "A stop the app asked
         // for outlives the program that asked".
         clearOutstandingStop()
+        // An outstanding pause goes with it: the user has asked for the belt to
+        // move, so the suspend-and-hold the pause was carrying is over.
+        clearOutstandingPause()
         stopNotObeyed = false
         record(command: speedKmh, incline: incline, origin: .start)
         targetsDirtyWhileNotRunning = false
@@ -1291,6 +1391,10 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     /// frame read as a confirmed stop (finding 78).
     func requestStop() {
         if demoMode { return demoStop() }
+        // A stop supersedes a pause: the stronger ask owns the belt from here,
+        // and the runner's outstanding-stop guard already suspends and finishes
+        // the program on its own.
+        clearOutstandingPause()
         if outstandingStop == nil {
             // The speed the stop is asked for at is what the failure window is
             // sized against, so it is captured once, here (finding 95).
@@ -1312,9 +1416,41 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         enqueue(FitShowCommands.stop)
     }
 
+    /// A pause, remembered as outstanding until the belt is observed standing.
+    ///
+    /// The command itself is the vendor 0x0A frame and the queue's three
+    /// attempts; what this adds is the *fact of the ask*. The T40 honours a
+    /// pause through many seconds of `running` frames at a falling speed before
+    /// the standstill (finding 181), and the runner used to learn about the
+    /// pause only from that standstill — so the whole wind-down stayed inside
+    /// the segment, where the next governed evaluation wrote a target and a
+    /// target-honouring console took the write as the pause being called off
+    /// (finding 205). The demo path stays as it was: its pause is instant and
+    /// reports `paused`, which the runner already suspends on.
     func requestPause() {
         if demoMode { return demoPause() }
+        if outstandingPause == nil {
+            outstandingPause = OutstandingPause(speedAtRequestKmh: state.speedKmh)
+            isPauseOutstanding = true
+            lastPauseTickAt = Date()
+            diagnostics.record(.pause, [
+                .text("phase", "requested"),
+                .speed("speedAtRequestKmh", state.speedKmh),
+                .text("status", DiagnosticLog.name(of: state.status)),
+                .seconds("giveUpWindowSeconds",
+                         Self.pauseGiveUpSeconds(fromSpeedKmh: state.speedKmh))])
+        }
         enqueue(FitShowCommands.pause)
+    }
+
+    /// The pause, dropped without ceremony. A pause carries no failure and no
+    /// banner — what ends here is only the runner's suspend-and-hold — so the
+    /// user actions that supersede it (an explicit start, a stop of the app's
+    /// own) and the paths that wipe the link's state all land here.
+    private func clearOutstandingPause() {
+        guard outstandingPause != nil else { return }
+        outstandingPause = nil
+        isPauseOutstanding = false
     }
 
     /// A new segment of a program has begun. It retires the console-dial verdict
@@ -1520,6 +1656,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
 
         insistOnOutstandingStop(now: now)
         retireStopFailureIfObeyed(now: now)
+        resolveOutstandingPause(now: now)
 
         // An unacknowledged command drops out after 3 sends so it does not starve the poll.
         if let head = pending.first, head.attempts >= 3 {
@@ -1660,6 +1797,42 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
                                                isRequestOutstanding: Bool,
                                                isObservedStopped: Bool) -> Bool {
         isFailureStanding && !isRequestOutstanding && isObservedStopped
+    }
+
+    /// One poll of an outstanding pause: drop it the moment the belt is observed
+    /// standing — the T40 reports a paused belt as `running` at 0 (finding 181),
+    /// so the standstill is the observation the ask was for — and drop it too
+    /// once the belt has outlived the wind-down it was given without ever coming
+    /// down, so a lost pause frame cannot hold the runner's suspend forever.
+    private func resolveOutstandingPause(now: Date) {
+        guard let pause = outstandingPause else { return }
+        let delta = now.timeIntervalSince(lastPauseTickAt)
+        lastPauseTickAt = now
+        let frameAge = now.timeIntervalSince(lastFrameAt)
+        let (next, resolution) = Self.resolvingPause(
+            pause, bySeconds: delta,
+            isObservedStanding: Self.isObservedStanding(status: state.status,
+                                                        speedKmh: state.speedKmh,
+                                                        frameAge: frameAge))
+        switch resolution {
+        case .waiting:
+            outstandingPause = next
+        case .honoured:
+            diagnostics.record(.pause, [
+                .text("phase", "honoured"),
+                .seconds("secondsSinceRequest", next.secondsSinceRequest),
+                .text("status", DiagnosticLog.name(of: state.status)),
+                .speed("speedKmh", state.speedKmh)])
+            clearOutstandingPause()
+        case .gaveUp:
+            diagnostics.record(.pause, [
+                .text("phase", "gaveUp"),
+                .seconds("secondsSinceRequest", next.secondsSinceRequest),
+                .speed("speedAtRequestKmh", next.speedAtRequestKmh),
+                .speed("speedKmh", state.speedKmh),
+                .text("status", DiagnosticLog.name(of: state.status))])
+            clearOutstandingPause()
+        }
     }
 
     /// The belt-and-braces reduction: **a stop aid, not a command anybody chose.**
@@ -1844,6 +2017,12 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     /// re-anchors the detector.
     private func observeDial(_ data: RunData) {
         guard data.speedKmh > 0 else { return }
+        // A wind-down the app itself asked for is not a person turning a dial:
+        // while a pause is outstanding, the falling measurement is the belt
+        // obeying that ask, and letting it accumulate here latched hand-backs
+        // at random depending on where in the wind-down a frame landed. A
+        // console-initiated pause has no ask to know about and is unchanged.
+        guard outstandingPause == nil else { return }
         let now = Date()
         let delta = now.timeIntervalSince(lastRunningFrameAt)
         lastRunningFrameAt = now
