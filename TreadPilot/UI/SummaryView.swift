@@ -74,6 +74,15 @@ struct SummaryView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .preferredColorScheme(.dark)
+        // Flushed before it is offered, the same rule the profile's list obeys:
+        // what the share sheet hands over is what has actually happened. The
+        // freshest log is this workout's — the recorder or the runner opened it
+        // when the workout began, and this sheet is presented by its close.
+        .task {
+            guard DiagnosticLog.shared.isEnabled else { return }
+            await DiagnosticLog.shared.flush()
+            diagnosticLogURL = DiagnosticLog.shared.recentLogs().first?.url
+        }
     }
 
     /// A belt the app never saw stop is not a clean finish, whatever else the
