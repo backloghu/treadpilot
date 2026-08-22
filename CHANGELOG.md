@@ -24,7 +24,7 @@ computed from your own body data, and a measurement of how reliable your Watch's
 actually is, recorded per workout. The zones shipped before the control did, deliberately, so
 the feed's reliability could be judged before it was allowed to steer.
 
-The test suite grew from 46 tests to 487.
+The test suite grew from 46 tests to 509.
 
 ### Features
 
@@ -40,6 +40,7 @@ _Verified:_
 
 - A segment can be given a distance from 0.1 to 42.2 km, and it survives an app restart
 - The workout screen shows progress against the goal (3.2 / 5.0 km) with the remaining time as an estimate below it
+- The progress readout reaches the goal figure only when the distance actually has: the live value is truncated, never rounded, so "1.0 / 1.0 km" cannot appear with fifty metres still to run
 - Pace in min/km is shown alongside km/h wherever a distance segment is edited or run
 - Program totals: the distance is exact, the time carries a "~" in the editor, the program list, the home screen and the workout screen
 - Distance does not accumulate while the program is suspended, while the belt is standing, or while the Bluetooth data has gone stale
@@ -65,6 +66,7 @@ _Verified:_
 - When Health holds a maximum lower than the age formula, the profile says so, so the estimate can be corrected
 - A profile with no usable reserve produces no zones rather than nonsense
 - The zone appears only while a live heart rate is available, and disappears when the reading goes stale
+- A Watch feed that was delivering and goes silent is called out on the workout screen in so many words, not only implied by a disappearing chip
 - The last known Health values are kept, so a cold launch does not zone against a fallback
 - The basis is frozen when a workout starts and cannot move mid-workout
 
@@ -98,10 +100,10 @@ _Verified:_
 - The band-following loop never commands outside the segment's own limits intersected with the treadmill's; the two ceilings and the feed-loss fallback are bounded by the treadmill's limits alone, so a segment's floor cannot hold a brake up
 - It never adds load while the heart rate is above the band, or while there is no fresh reading
 - Only the Apple Watch feed may steer; the handlebar sensor remains display and recording only
-- With the setting off, a heart-rate segment runs at its start speed as an ordinary fixed segment, and nothing about heart rate touches the belt
+- With the setting off, a heart-rate segment runs at its start speed as an ordinary fixed segment, and nothing about heart rate touches the belt — and starting such a program says so in the confirmation, before the belt moves
 - A missing reading freezes the belt, then falls back to the segment's declared fallback speed after 30 s
 - Above 92% of the frozen maximum the app reduces the load regardless of the band; above 97% it stops the belt
-- A stop the app asked for is re-issued until the belt is observed stopped, and if it is not, the user is told to stop it at the console
+- A stop the app asked for is re-issued until the belt is observed stopped — but only while the belt is not obeying: a belt observed winding itself down is left to finish gently, and if it does not stop, the user is told to stop it at the console
 - A band above the force-down ceiling is refused rather than chased, so the app will not hold anyone in their top zone
 - If the band cannot be reached at the segment's upper limit, the app stops pushing and says so
 - Every command is one step from where the belt actually is, so a speed you set by hand persists; a decisive change hands control back for the rest of the segment

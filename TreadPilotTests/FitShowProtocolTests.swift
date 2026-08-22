@@ -1108,7 +1108,8 @@ final class FitShowProtocolTests: XCTestCase {
     // MARK: - The stop the client insists on (finding 78)
 
     /// `speedKmh` defaults to nil — nothing observed, which is not a belt observed
-    /// obeying, so the failure clock runs. A test about the wind-down says so.
+    /// obeying, so the failure clock runs and no obeying credit is ever earned
+    /// (finding 199). A test about the wind-down passes a speed and says so.
     private func insist(_ stop: OutstandingStop, seconds: Double = 1,
                         stopped: Bool = false,
                         speedKmh: Double? = nil) -> (OutstandingStop, StopInsistence) {
@@ -1367,6 +1368,203 @@ final class FitShowProtocolTests: XCTestCase {
         stop = insist(stop, speedKmh: 9.5).0
         XCTAssertTrue(FitShowTreadmillClient.abandonRaisesFailure(stop),
                       "the belt sped back up — losing the link now is not evidence it kept slowing")
+    }
+
+    // MARK: - An obeying belt must not be pushed (finding 199, task #199)
+
+    func testAnOrdinaryProgramEndAsksOnceAndThenLetsTheBeltComeDown() {
+        // The hardware test this exists for (task #199, a real Tunturi T40): the
+        // cool-down ran at 6.2 km/h, the program ended, the app asked the belt to
+        // stop — and the belt braked to a standstill almost at once instead of
+        // winding down. Every re-issue also writes a target one km/h below what is
+        // already happening, this console honours target changes, and the
+        // insistence re-issued every `stopReissueSeconds` regardless of what the
+        // belt was doing. Modelled at the client's own rates: a 0.2 s poll against
+        // a console that publishes a new speed every 0.6 s, which is finding 140's
+        // mismatch and exactly what a per-tick comparison would trip over.
+        let pollSeconds = 0.2
+        let reportSeconds = 0.6
+        var stop = OutstandingStop(speedAtRequestKmh: 6.2, lastSpeedKmh: 6.2)
+        var beltKmh = 6.2
+        var reportedKmh = 6.2
+        var sinceReport = 0.0
+        var insists = 0
+        // Twenty seconds; a 6.2 km/h wind-down is twelve and a half of them.
+        for _ in 0..<100 {
+            beltKmh = max(0, beltKmh
+                - FitShowTreadmillClient.beltDecelerationKmhPerSecond * pollSeconds)
+            sinceReport += pollSeconds
+            if sinceReport >= reportSeconds {
+                reportedKmh = (beltKmh * 10).rounded() / 10
+                sinceReport = 0
+            }
+            let (next, step) = insist(stop, seconds: pollSeconds, speedKmh: reportedKmh)
+            stop = next
+            if step == .insist { insists += 1 }
+        }
+        XCTAssertEqual(insists, 0, "an obeying belt must not be pushed — and the stop aid " +
+                       "rides with every re-issue, so this is zero aid writes too")
+        XCTAssertEqual(stop.attempts, 1, "exactly one stop command: the one `requestStop` sent")
+        XCTAssertEqual(reportedKmh, 0, accuracy: 0.0001, "the belt did stop, on its own")
+        XCTAssertFalse(stop.isFailure, "and nothing about it failed to obey")
+        // And the console's own idle frame retires the stop.
+        XCTAssertEqual(insist(stop, seconds: pollSeconds, stopped: true, speedKmh: 0).1, .obeyed)
+    }
+
+    func testABeltThatFlattensGetsTheInsistenceAndTheAidBackWithinOneWindow() {
+        // The other half of the ruling: the gate is credit, not amnesty. A belt
+        // that comes down and then holds above zero is the console class of
+        // finding 141 — it honours a target change while ignoring the stop — and it
+        // is pushed again within one credit window of flattening, because the
+        // attempt clock is not reset while the app waits.
+        let plateauKmh = 0.8 // TreadmillLimits().minSpeedKmh
+        var stop = OutstandingStop(speedAtRequestKmh: 6.0, lastSpeedKmh: 6.0)
+        var speed = 6.0
+        while speed > plateauKmh {
+            speed = max(plateauKmh,
+                        speed - FitShowTreadmillClient.beltDecelerationKmhPerSecond)
+            let (next, step) = insist(stop, speedKmh: speed)
+            stop = next
+            XCTAssertNotEqual(step, .insist, "still coming down (at \(speed) km/h)")
+        }
+        XCTAssertTrue(stop.isObeying)
+        var secondsFlat = 0.0
+        var resumedAfter: Double?
+        for _ in 0..<10 {
+            let (next, step) = insist(stop, speedKmh: plateauKmh)
+            stop = next
+            secondsFlat += 1
+            if step == .insist, resumedAfter == nil { resumedAfter = secondsFlat }
+        }
+        XCTAssertNotNil(resumedAfter, "a belt that stopped coming down is a belt to push again")
+        XCTAssertLessThanOrEqual(resumedAfter ?? .infinity,
+                                 FitShowTreadmillClient.stopObeyingCreditSeconds + 1,
+                                 "within one credit window of flattening, plus its own tick")
+        XCTAssertFalse(stop.isObeying, "and the credit stays gone while the belt holds")
+        XCTAssertGreaterThan(stop.attempts, 1)
+    }
+
+    func testTheFindingOneFortyOneConsoleIsStillWalkedDownAndStillDeclaredAFailure() {
+        // The console the aid exists for, driven end to end under the gate: it
+        // honours every target it is given and ignores the stop itself. Gated, the
+        // walk-down is slower — one km/h per (descent + one credit window) instead
+        // of one per re-issue window — so this is the test that finding 141's own
+        // guarantee was not sold to buy finding 199: the belt is still walked all
+        // the way to the machine's minimum, and is still *declared* a failure
+        // before the insistence gives up on it. Giving up silently is the bug 141
+        // named. It now lands earlier in the walk-down, not later, because each
+        // step spends a credit window flat with the failure clock running.
+        let limits = TreadmillLimits()
+        let tick = 0.2
+        let requestKmh = 10.0
+        var stop = OutstandingStop(speedAtRequestKmh: requestKmh, lastSpeedKmh: requestKmh)
+        var speed = requestKmh
+        var target = requestKmh
+        var step = StopInsistence.wait
+        var elapsed = 0.0
+        var failedAfter: Double?
+        while step != .abandoned, elapsed < 200 {
+            // The belt travels toward whatever target it was last given, at the
+            // half a km/h a second it sheds whatever it is told.
+            speed = max(target, ((speed
+                - FitShowTreadmillClient.beltDecelerationKmhPerSecond * tick) * 10)
+                .rounded() / 10)
+            (stop, step) = insist(stop, seconds: tick, speedKmh: speed)
+            elapsed += tick
+            if step == .insist {
+                // What the client writes alongside the re-issued stop.
+                target = FitShowTreadmillClient.stopAidTarget(
+                    commandedSpeedKmh: requestKmh, commandedIncline: 0,
+                    observedSpeedKmh: speed, measuredIncline: 0, limits: limits).speedKmh
+            }
+            if stop.isFailure, failedAfter == nil { failedAfter = elapsed }
+        }
+        XCTAssertEqual(step, .abandoned)
+        XCTAssertEqual(speed, limits.minSpeedKmh, accuracy: 0.0001,
+                       "walked down to the machine's own minimum, one km/h at a time")
+        XCTAssertNotNil(failedAfter, "giving up on this belt must not be silent")
+        XCTAssertLessThan(failedAfter ?? .infinity,
+                          FitShowTreadmillClient.stopGiveUpSeconds(fromSpeedKmh: requestKmh),
+                          "declared a failure before the insistence gave up on it")
+        XCTAssertTrue(stop.isFailure)
+    }
+
+    func testADroppedStopFrameStillInsistsAtTheFirstReissueWindow() {
+        // The case the insistence exists for, unchanged by the gate: the stop
+        // command never arrives, the belt holds at speed, and no number of
+        // repeated readings of that speed is credit — `wasObservedSlowing` was
+        // never earned in the first place.
+        var stop = OutstandingStop(speedAtRequestKmh: 8.0, lastSpeedKmh: 8.0)
+        var step = StopInsistence.wait
+        var elapsed = 0.0
+        while step != .insist, elapsed < 10 {
+            (stop, step) = insist(stop, seconds: 0.2, speedKmh: 8.0)
+            elapsed += 0.2
+        }
+        XCTAssertEqual(step, .insist)
+        XCTAssertEqual(elapsed, FitShowTreadmillClient.stopReissueSeconds, accuracy: 0.2001,
+                       "at the first window, exactly as before finding 199")
+        XCTAssertFalse(stop.isObeying, "a belt that never came down was never credited")
+    }
+
+    func testABeltThatSpeedsBackUpIsPushedAgainAtOnce() {
+        // The credit's other exit: an increase is real evidence and unlatches it
+        // outright, without waiting for the window to run out.
+        var stop = OutstandingStop(speedAtRequestKmh: 6.0, lastSpeedKmh: 6.0)
+        for speed in [5.5, 5.0, 4.5] { stop = insist(stop, speedKmh: speed).0 }
+        XCTAssertTrue(stop.isObeying)
+        let (next, step) = insist(stop, speedKmh: 5.0)
+        XCTAssertFalse(next.isObeying)
+        XCTAssertEqual(step, .insist, "the attempt clock was long due")
+    }
+
+    func testWaitingOnAnObeyingBeltStallsNeitherClock() {
+        // The gate changed which command goes out and not one number either clock
+        // keeps. The give-up clock is the app's own — how long it has been asking —
+        // so a belt credited with obeying for the whole window is still given up on
+        // at the same second as before; and the failure clock is still the flatness
+        // clock, which for a belt that only ever came down is zero.
+        let requestKmh = 4.0
+        let giveUp = FitShowTreadmillClient.stopGiveUpSeconds(fromSpeedKmh: requestKmh)
+        var stop = OutstandingStop(speedAtRequestKmh: requestKmh, lastSpeedKmh: requestKmh)
+        var speed = requestKmh
+        var step = StopInsistence.wait
+        var elapsed = 0.0
+        while step != .abandoned, elapsed < giveUp * 2 {
+            speed = max(0, ((speed - 0.1) * 10).rounded() / 10)
+            (stop, step) = insist(stop, seconds: 0.2, speedKmh: speed)
+            elapsed += 0.2
+        }
+        XCTAssertEqual(step, .abandoned)
+        XCTAssertEqual(stop.secondsSinceRequest, giveUp, accuracy: 0.2001,
+                       "the app's own clock ran through every waiting tick")
+        XCTAssertEqual(stop.secondsNotSlowing, 0, accuracy: 0.0001,
+                       "and the failure clock did not run for a belt that only came down")
+        XCTAssertFalse(stop.isFailure)
+        XCTAssertFalse(FitShowTreadmillClient.abandonRaisesFailure(stop),
+                       "a belt seen coming down all the way to zero refused nothing")
+        XCTAssertEqual(stop.attempts, 1, "and it was never pushed on the way")
+    }
+
+    func testAReconnectAsksAgainAtOnceWhateverCreditTheStopHadEarned() {
+        // The credit is evidence, not memory: a wiped link is no observation of a
+        // belt coming down, so the gap counts against it exactly as it counts for
+        // the failure clock. Otherwise a credit earned before the radio went away
+        // would make the reconnection wait — and the first tick on the new link
+        // asking again at once is the whole of what `outaged` is for (finding 93).
+        typealias Client = FitShowTreadmillClient
+        var stop = OutstandingStop(speedAtRequestKmh: 10.0, lastSpeedKmh: 10.0)
+        stop = insist(stop, speedKmh: 9.5).0
+        XCTAssertTrue(stop.isObeying, "just seen coming down")
+        let outaged = Client.outaged(stop, bySeconds: 60)
+        XCTAssertFalse(outaged.isObeying)
+        // What the first ticks after a reconnect actually carry: no fresh frame at
+        // all, then a repeat of the last reading anybody saw. Neither is evidence.
+        XCTAssertEqual(insist(outaged, seconds: 0.2, speedKmh: nil).1, .insist)
+        XCTAssertEqual(insist(outaged, seconds: 0.2, speedKmh: 9.5).1, .insist)
+        // A frame showing the belt genuinely lower than anyone last saw it *is*
+        // evidence, and by the same principle that belt is not pushed.
+        XCTAssertEqual(insist(outaged, seconds: 0.2, speedKmh: 9.0).1, .wait)
     }
 
     // MARK: - The stop aid is not a command anybody chose (finding 96)

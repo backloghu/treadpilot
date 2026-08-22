@@ -74,6 +74,23 @@ struct OutstandingStop: Equatable, Sendable {
     /// false: an outstanding stop nobody has watched even once has earned no
     /// credit yet.
     var wasObservedSlowing = false
+    /// Measured seconds since the belt was last *seen* coming down: a reading
+    /// lower than the one on file, or a reading of zero. Reset by that evidence
+    /// and by nothing else — a repeated reading, a stale frame and a link outage
+    /// all count against it, exactly as they count for the failure clock.
+    ///
+    /// This is the recency `isObeying` needs, and the reason it cannot be read off
+    /// either clock that already exists. `secondsNotSlowing` is *cumulative*
+    /// flatness: the poll runs five times a second while the console reports a new
+    /// speed far less often (finding 140), so four ticks in five re-observe the
+    /// reading already on file even in the middle of an honest wind-down, and that
+    /// clock therefore grows through most of every legitimate wind-down — correct
+    /// for a failure window sized in tens of seconds, useless as a gate measured
+    /// in twos. The per-tick comparison is the opposite failure: it is false on
+    /// those same four ticks in five, so gating on it would push an obeying belt
+    /// on nearly every re-issue that came due. What separates the two cases is
+    /// *how long ago* the last genuine decrease was, which is what this counts.
+    var secondsSinceSlowing: Double = 0
 
     /// Has the belt failed to obey? Both halves of the ruling: the clock that
     /// pauses while the belt slows, against a window sized by the speed the stop
@@ -81,6 +98,33 @@ struct OutstandingStop: Equatable, Sendable {
     var isFailure: Bool {
         secondsNotSlowing >= FitShowTreadmillClient.stopFailureSeconds(
             fromSpeedKmh: speedAtRequestKmh)
+    }
+
+    /// **Is the belt credited with obeying right now?** — the gate on the
+    /// re-issue, and the whole of finding 199. A belt seen coming down within the
+    /// last `FitShowTreadmillClient.stopObeyingCreditSeconds` is a belt obeying,
+    /// and *an obeying belt must not be pushed*: the same evidence that pauses the
+    /// failure clock above now also withholds the next stop command and the stop
+    /// aid that rides with it.
+    ///
+    /// The hardware test (2026-08-22, a real Tunturi T40) is what this is for. At
+    /// the end of an ordinary program — cool-down at 6.2 km/h — the belt braked to
+    /// a standstill almost at once, because the insistence re-issued every
+    /// `stopReissueSeconds` regardless of what the belt was doing, and every
+    /// re-issue also writes a target one km/h below what is already happening. The
+    /// console honours target changes, so instead of its own gentle wind-down it
+    /// was stepped down a km/h every two seconds. The aid exists for the console
+    /// class of finding 141 — one that honours a target change while ignoring the
+    /// stop — and that class never shows as slowing in the first place, so it
+    /// loses nothing to this gate.
+    ///
+    /// `wasObservedSlowing` is the precondition rather than a `secondsSinceSlowing`
+    /// of zero, because a stop nobody has watched even once has earned no credit:
+    /// that clock reads zero at birth, and a belt whose stop frame was dropped
+    /// outright has to insist at the first window, which is exactly what it does.
+    var isObeying: Bool {
+        wasObservedSlowing
+            && secondsSinceSlowing < FitShowTreadmillClient.stopObeyingCreditSeconds
     }
 }
 
@@ -574,13 +618,29 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             2 * stopFailureSeconds(fromSpeedKmh: speedKmh) + stopReissueSeconds * 3)
     }
 
+    /// How long one genuine observation of the belt coming down credits it with
+    /// obeying (`OutstandingStop.isObeying`). One re-issue window, and that is a
+    /// choice with two sides to satisfy.
+    ///
+    /// It has to be long enough to survive the poll re-observing an unchanged
+    /// reading — 5 Hz of polling against a console that publishes a new speed
+    /// perhaps once a second (finding 140), so a flat repeat must not instantly
+    /// discredit an honest wind-down. And it has to be short enough to hand the
+    /// insistence back promptly once a belt stops falling for real, which is the
+    /// finding-141 plateau. One window does both: a wind-down produces a new lower
+    /// reading well inside it, and a belt that flattens loses the credit — on the
+    /// very tick it lapses, because the attempt clock is not reset while the app
+    /// waits, so the next stop command goes out immediately rather than at the
+    /// following window.
+    nonisolated static let stopObeyingCreditSeconds: Double = stopReissueSeconds
+
     /// How much speed each re-issue takes off, as belt-and-braces for a dropped
     /// stop frame.
     nonisolated static let stopSpeedStepKmh: Double = 1.0
 
     /// One poll of an outstanding stop, as a pure function so that "it keeps
-    /// asking until the belt stops" is a property of something tested rather than
-    /// of a statement order.
+    /// asking until the belt stops, and only while the belt is not already doing
+    /// it" is a property of something tested rather than of a statement order.
     ///
     /// A tick is credited with at most one freshness horizon, for the same reason
     /// the runner's tallies are: a wedged timer must not fast-forward the give-up
@@ -600,11 +660,11 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
         // speeds here — one quantum is 0.09999999999999964 as a `Double`. Nothing
         // observed is not a belt observed obeying, so a stale frame runs the clock:
         // `nil` and a remembered zero are two very different things.
-        var isObeying = false
+        var isSlowingNow = false
         if let observed = measuredSpeedKmh, observed.isFinite {
             let units = HeartRateGovernor.speedUnits(observed)
             let lastUnits = HeartRateGovernor.speedUnits(next.lastSpeedKmh)
-            isObeying = units <= 0 || units < lastUnits
+            isSlowingNow = units <= 0 || units < lastUnits
             // Finding 140: `wasObservedSlowing` used to be overwritten from this
             // one comparison every tick, but the poll runs five times a second
             // while the console reports a new speed far less often — so most
@@ -619,19 +679,49 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
             // discredit — `secondsNotSlowing` below is unaffected and still
             // judges the belt from the duration it spends flat, never from
             // this latch.
-            if isObeying {
+            if isSlowingNow {
                 next.wasObservedSlowing = true
             } else if units > lastUnits {
                 next.wasObservedSlowing = false
             }
             next.lastSpeedKmh = observed
         }
-        if !isObeying { next.secondsNotSlowing += delta }
+        // The failure clock and the credit's own recency clock, from the same one
+        // judgement: this tick either brought new evidence of the belt coming down
+        // or it did not. `secondsNotSlowing` is unchanged in every respect — it
+        // still runs on exactly the ticks it used to and is still what
+        // `isFailure` and the give-up sizing of finding 141 are reasoned against.
+        if isSlowingNow {
+            next.secondsSinceSlowing = 0
+        } else {
+            next.secondsNotSlowing += delta
+            next.secondsSinceSlowing += delta
+        }
         guard next.secondsSinceRequest
             < stopGiveUpSeconds(fromSpeedKmh: next.speedAtRequestKmh) else {
             return (next, .abandoned)
         }
         guard next.secondsSinceAttempt >= stopReissueSeconds else { return (next, .wait) }
+        // Finding 199: it is time to ask again, but an obeying belt must not be
+        // pushed. The re-issue — and the stop aid that rides with it in
+        // `insistOnOutstandingStop` — is gated on the same evidence as the failure
+        // clock above, so a belt that is coming down is left to come down, and the
+        // insistence resumes the moment the credit lapses: the belt flattens above
+        // zero, or speeds up and unlatches `wasObservedSlowing`. The attempt clock
+        // is deliberately *not* reset here, which is what makes that resume
+        // immediate rather than a window late.
+        //
+        // Neither reversal in this file's history is reopened. Finding 96 was the
+        // aid leaking into the app's own three facts, and its fix — the aid going
+        // straight onto the wire, touching no record — is untouched by firing it
+        // strictly less often. Finding 141 sized the give-up clock so that a
+        // console honouring targets while ignoring the stop is *declared a
+        // failure* before the insistence gives up on it; that sizing only gains
+        // slack here, because the gated walk-down spends a credit window flat at
+        // every step — with the failure clock running — instead of being aided
+        // down every two seconds, so the failure now lands earlier in the
+        // walk-down rather than only at the plateau.
+        guard !next.isObeying else { return (next, .wait) }
         next.secondsSinceAttempt = 0
         next.attempts += 1
         return (next, .insist)
@@ -743,6 +833,10 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     private var dial = ConsoleDialDetector()
     private var outstandingStop: OutstandingStop?
     private var lastStopTickAt: Date = .distantPast
+    /// Diagnostics only: has this waiting spell already said why it is waiting?
+    /// Keeps "the belt is obeying, so nothing was sent" one line per spell instead
+    /// of five a second (finding 199).
+    private var loggedStopObeying = false
     private var userWantsConnection = false
     private var pendingScanRequest = false
     private var variantDetector = FitShowVariantDetector()
@@ -1071,6 +1165,7 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     /// change here and in `requestStop`.
     private func clearOutstandingStop() {
         outstandingStop = nil
+        loggedStopObeying = false
         if isStopOutstanding { isStopOutstanding = false }
     }
 
@@ -1130,11 +1225,18 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
     /// observed slowing during it) and the insistence's own clocks take none of it
     /// (the app was not asking and had no radio to ask on), while the attempt clock
     /// is left due so the first tick on the new link re-issues at once.
+    ///
+    /// The gap counts against the obeying credit too (finding 199), for the same
+    /// reason it counts for the failure clock: a wiped link is not an observation
+    /// of a belt coming down, and a credit earned before the radio went away must
+    /// not be what makes the reconnection wait. The first ticks after a reconnect
+    /// read a stale `lastFrameAt` anyway, so they observe nothing at all.
     nonisolated static func outaged(_ stop: OutstandingStop,
                                     bySeconds seconds: Double) -> OutstandingStop {
         guard seconds.isFinite, seconds > 0 else { return stop }
         var next = stop
         next.secondsNotSlowing += seconds
+        next.secondsSinceSlowing += seconds
         next.secondsSinceAttempt = stopReissueSeconds
         return next
     }
@@ -1484,7 +1586,28 @@ final class FitShowTreadmillClient: NSObject, ObservableObject {
                     .speed("lastSpeedKmh", next.lastSpeedKmh)])
                 stopNotObeyed = true
             }
-            guard step == .insist else { return }
+            guard step == .insist else {
+                // The re-issue came due and nothing went out, because the belt is
+                // coming down on its own (finding 199). Worth seeing in a hardware
+                // log — it is the difference between this fix working and the stop
+                // frame being lost — but once per waiting spell, not once per tick:
+                // the poll runs five times a second, and this is the ordinary case
+                // at the end of every program.
+                if next.isObeying, next.secondsSinceAttempt >= Self.stopReissueSeconds,
+                   !loggedStopObeying {
+                    loggedStopObeying = true
+                    diagnostics.record(.stop, [
+                        .text("phase", "obeying"),
+                        .seconds("secondsSinceRequest", next.secondsSinceRequest),
+                        .seconds("secondsSinceSlowing", next.secondsSinceSlowing),
+                        .speed("lastSpeedKmh", next.lastSpeedKmh),
+                        .text("status", DiagnosticLog.name(of: state.status))])
+                }
+                return
+            }
+            // The belt stopped being credited, so the next waiting spell is a new
+            // one and says so in the log.
+            loggedStopObeying = false
             diagnostics.record(.stop, [
                 .text("phase", "insisted"),
                 .int("attempt", next.attempts),
